@@ -20,6 +20,107 @@ const tipoLabel = {
   comercial: 'Construção comercial'
 };
 
+const IBGE_MG_MUNICIPIOS_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados/31/municipios?orderBy=nome';
+let municipiosMG = [];
+
+function normalizeText(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+async function loadMunicipiosMG() {
+  const input = document.querySelector('#municipio');
+  const helper = document.querySelector('#cityHelper');
+  if (!input || municipiosMG.length) return;
+
+  helper.textContent = 'Carregando municípios...';
+  try {
+    const response = await fetch(IBGE_MG_MUNICIPIOS_URL);
+    if (!response.ok) throw new Error('Falha ao consultar municípios');
+    const data = await response.json();
+    municipiosMG = data.map(item => ({ id: String(item.id), nome: item.nome, uf: 'MG' }));
+    helper.textContent = 'Comece a digitar e selecione o município.';
+  } catch (error) {
+    helper.textContent = 'Não foi possível carregar a lista automática. Tente novamente.';
+    helper.classList.add('error');
+  }
+}
+
+function renderCitySuggestions() {
+  const input = document.querySelector('#municipio');
+  const box = document.querySelector('#citySuggestions');
+  const term = normalizeText(input.value);
+  box.innerHTML = '';
+
+  if (term.length < 2 || !municipiosMG.length) {
+    box.classList.remove('open');
+    return;
+  }
+
+  const matches = municipiosMG
+    .filter(city => normalizeText(city.nome).includes(term))
+    .slice(0, 8);
+
+  if (!matches.length) {
+    box.innerHTML = '<div class="city-option"><span>Nenhum município encontrado</span><small>MG</small></div>';
+    box.classList.add('open');
+    return;
+  }
+
+  matches.forEach(city => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'city-option';
+    button.setAttribute('role', 'option');
+    button.innerHTML = `<span>${city.nome}</span><small>${city.uf}</small>`;
+    button.addEventListener('click', () => selectMunicipio(city));
+    box.appendChild(button);
+  });
+
+  box.classList.add('open');
+}
+
+function selectMunicipio(city) {
+  const input = document.querySelector('#municipio');
+  const idField = document.querySelector('#municipioId');
+  const ufField = document.querySelector('#municipioUf');
+  const helper = document.querySelector('#cityHelper');
+  const box = document.querySelector('#citySuggestions');
+
+  input.value = `${city.nome}, ${city.uf}`;
+  idField.value = city.id;
+  ufField.value = city.uf;
+  helper.textContent = 'Município selecionado.';
+  helper.classList.remove('error');
+  helper.classList.add('valid');
+  box.classList.remove('open');
+}
+
+function setupCityAutocomplete() {
+  const input = document.querySelector('#municipio');
+  const box = document.querySelector('#citySuggestions');
+  const idField = document.querySelector('#municipioId');
+  const helper = document.querySelector('#cityHelper');
+  if (!input || !box) return;
+
+  loadMunicipiosMG();
+
+  input.addEventListener('focus', loadMunicipiosMG);
+  input.addEventListener('input', () => {
+    idField.value = '';
+    helper.classList.remove('valid', 'error');
+    helper.textContent = 'Selecione uma das cidades sugeridas.';
+    renderCitySuggestions();
+  });
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.city-autocomplete')) box.classList.remove('open');
+  });
+}
+
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
@@ -27,6 +128,8 @@ function clamp(n, min, max) {
 function getData() {
   return {
     municipio: document.querySelector('#municipio').value.trim(),
+    municipioId: document.querySelector('#municipioId').value,
+    municipioUf: document.querySelector('#municipioUf').value || 'MG',
     lote: document.querySelector('#lote').value,
     areaTerreno: Number(document.querySelector('#areaTerreno').value) || 0,
     tipo: document.querySelector('#tipo').value,
@@ -222,6 +325,15 @@ function render(d, r) {
 document.querySelector('#calcForm').addEventListener('submit', e => {
   e.preventDefault();
   const d = getData();
+
+  if (!d.municipioId) {
+    const helper = document.querySelector('#cityHelper');
+    helper.textContent = 'Selecione o município na lista de sugestões.';
+    helper.classList.add('error');
+    document.querySelector('#municipio').focus();
+    return;
+  }
+
   if (!d.area || d.area < 35) {
     alert('Informe uma área válida a partir de 35 m².');
     return;
@@ -229,6 +341,8 @@ document.querySelector('#calcForm').addEventListener('submit', e => {
   const r = calculate(d);
   render(d, r);
 });
+
+setupCityAutocomplete();
 
 document.querySelector('#copySummary').addEventListener('click', async () => {
   if (!window.currentSummary) return;
