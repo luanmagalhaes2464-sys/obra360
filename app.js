@@ -1,3 +1,31 @@
+const visualStyles = document.createElement('style');
+visualStyles.textContent = `
+.hero{background:#173f32 url("https://commons.wikimedia.org/wiki/Special:FilePath/Balaustrada_Vi%C3%A7osa_MG.jpg") center/cover no-repeat!important}
+.hero:after{background:linear-gradient(90deg,rgba(10,26,21,.90) 0%,rgba(16,45,36,.78) 46%,rgba(16,45,36,.72) 100%),linear-gradient(180deg,rgba(8,18,16,.28),rgba(8,18,16,.38)),radial-gradient(circle at 80% 35%,rgba(76,113,93,.28) 0%,transparent 38%)!important}
+.hero-caption{margin-top:18px;font-size:11px;color:#b8c8c1}
+.visual-showcase{padding-top:12px}
+.showcase-header{max-width:760px;margin-bottom:26px}
+.showcase-header h2{font:800 clamp(32px,4vw,52px) Manrope;letter-spacing:-.045em;line-height:1.08;margin:14px 0 12px}
+.showcase-header p{font-size:17px;line-height:1.7;color:#65706b}
+.showcase-grid{display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:16px;align-items:stretch}
+.showcase-card{position:relative;overflow:hidden;border-radius:24px;min-height:290px;background:#fff;border:1px solid #e6ebe7;box-shadow:0 20px 60px rgba(23,63,50,.08)}
+.showcase-card img{width:100%;height:100%;object-fit:cover;display:block}
+.showcase-main{min-height:420px}
+.showcase-overlay{position:absolute;left:0;right:0;bottom:0;padding:28px;background:linear-gradient(180deg,rgba(9,18,15,0) 0%,rgba(9,18,15,.84) 100%);color:#fff}
+.showcase-overlay span,.showcase-copy span{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#f4a27f}
+.showcase-overlay h3{font:800 30px Manrope;letter-spacing:-.04em;line-height:1.05;margin:10px 0 10px}
+.showcase-overlay p{font-size:14px;max-width:460px;color:#e1ebe6;line-height:1.55}
+.showcase-copy{padding:18px 18px 20px}
+.showcase-copy h3{font:700 22px Manrope;letter-spacing:-.03em;margin:10px 0 10px}
+.showcase-copy p{font-size:14px;line-height:1.65;color:#66716c}
+.image-credits{margin-top:22px;padding:18px 20px;background:#fff;border:1px solid #e3e8e5;border-radius:16px}
+.image-credits strong{display:block;font-size:14px;margin-bottom:8px}
+.image-credits p{margin:0;font-size:12px;line-height:1.6;color:#67716c}
+@media(max-width:960px){.showcase-grid{grid-template-columns:1fr 1fr}.showcase-main{grid-column:1/-1}}
+@media(max-width:640px){.showcase-grid{grid-template-columns:1fr}.showcase-main{min-height:330px}.showcase-overlay h3{font-size:24px}}
+`;
+document.head.appendChild(visualStyles);
+
 const money = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
 const number = v => new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(v);
 
