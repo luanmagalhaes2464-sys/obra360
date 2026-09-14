@@ -1,232 +1,85 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, ArrowRight, Camera, Check, CheckCircle2, ImagePlus, Keyboard,
-  LoaderCircle, Mic, MicOff, RotateCcw, Sparkles, X
+  AlertTriangle, Bot, Camera, Check, CheckCircle2, ClipboardCheck, Copy,
+  Download, FileSearch, FileText, ImagePlus, Keyboard, LoaderCircle, Mic, MicOff,
+  RotateCcw, Send, Sparkles, WandSparkles, X
 } from 'lucide-react'
 
-type Suggestion = {
-  id:number
-  title:string
-  stageKey?:string
-  discipline?:string
-  confidence?:number
-}
+type Suggestion={id:number;title:string;stageKey?:string;discipline?:string;confidence?:number}
+type VoiceAnalysis={summary:string;action:'done'|'reopen'|'na'|'create_task'|'create_stage'|'query'|'log'|'attention';suggestions:Suggestion[];safety:string[];nextStep?:string;answer?:string;createLabel?:string;confidence?:number;mode?:string}
+type VisionAnalysis={title:string;category:string;summary:string;stageKey?:string|null;discipline:string;taskIds:number[];checklistSuggestions:string[];observations:string[];safety:string[];architecture:string[];municipality:string[];extracted:Record<string,any>;confidence:number;mode?:string}
+type ReportResult={id:number;title:string;content:string;periodLabel:string;mode?:string;created_at?:string}
 
-type VoiceAnalysis = {
-  summary:string
-  action:'done'|'log'|'attention'
-  suggestions:Suggestion[]
-  safety:string[]
-  nextStep?:string
-  confidence?:number
-  mode?:string
-}
+async function api<T=any>(url:string,options:RequestInit={}):Promise<T>{const r=await fetch(url,{...options,credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Erro na operação');return d}
+function activeProjectId(){const el=document.querySelector('.project-select select') as HTMLSelectElement|null;return el?.value?Number(el.value):null}
+function refreshPortal(){window.dispatchEvent(new CustomEvent('obra360:refresh'));const buttons=Array.from(document.querySelectorAll('button'));const refresh=buttons.find(b=>/atualizar/i.test(b.textContent||''));if(refresh instanceof HTMLButtonElement)setTimeout(()=>refresh.click(),250)}
+function human(v=''){return String(v).replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}
 
-type PhotoAnalysis = {
-  summary:string
-  taskId:number|null
-  stageKey:string|null
-  confidence:number
-  tags:string[]
-  safety:string[]
-}
-
-async function api<T=any>(url:string, options:RequestInit={}):Promise<T>{
-  const r=await fetch(url,{...options,credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})}})
-  const d=await r.json().catch(()=>({}))
-  if(!r.ok) throw new Error(d.error||'Erro na operação')
-  return d
-}
-
-async function imageToDataUrl(file:File){
-  return await new Promise<string>((resolve,reject)=>{
-    const img=new Image(), reader=new FileReader()
-    reader.onload=()=>{
-      img.onload=()=>{
-        const max=1280, scale=Math.min(1,max/Math.max(img.width,img.height))
-        const w=Math.round(img.width*scale), h=Math.round(img.height*scale)
-        const c=document.createElement('canvas'); c.width=w; c.height=h
-        const ctx=c.getContext('2d'); if(!ctx) return reject(new Error('Falha ao processar imagem'))
-        ctx.drawImage(img,0,0,w,h)
-        resolve(c.toDataURL('image/jpeg',.72))
-      }
-      img.onerror=()=>reject(new Error('Imagem inválida'))
-      img.src=String(reader.result)
-    }
-    reader.onerror=()=>reject(new Error('Falha ao ler imagem'))
-    reader.readAsDataURL(file)
-  })
-}
-
-function activeProjectId(){
-  const el=document.querySelector('.project-select select') as HTMLSelectElement|null
-  return el?.value ? Number(el.value) : null
-}
+async function imageToDataUrl(file:File){return await new Promise<string>((resolve,reject)=>{const img=new Image(),reader=new FileReader();reader.onload=()=>{img.onload=()=>{const max=1440,scale=Math.min(1,max/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale),c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');if(!ctx)return reject(new Error('Falha ao processar imagem'));ctx.drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',.76))};img.onerror=()=>reject(new Error('Imagem inválida'));img.src=String(reader.result)};reader.onerror=()=>reject(new Error('Falha ao ler imagem'));reader.readAsDataURL(file)})}
+async function fileToDataUrl(file:File){if(file.type.startsWith('image/'))return imageToDataUrl(file);return await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(new Error('Falha ao ler arquivo'));r.readAsDataURL(file)})}
 
 export default function AutopilotDock(){
-  const [visible,setVisible]=useState(false)
-  const [open,setOpen]=useState(false)
-  const [tab,setTab]=useState<'voice'|'photo'|'text'>('voice')
-  const [listening,setListening]=useState(false)
-  const [transcript,setTranscript]=useState('')
-  const [interim,setInterim]=useState('')
-  const [analysis,setAnalysis]=useState<VoiceAnalysis|null>(null)
-  const [photoAnalysis,setPhotoAnalysis]=useState<PhotoAnalysis|null>(null)
-  const [photoId,setPhotoId]=useState<number|null>(null)
-  const [photoPreview,setPhotoPreview]=useState('')
-  const [selected,setSelected]=useState<number[]>([])
-  const [busy,setBusy]=useState(false)
-  const [message,setMessage]=useState('')
-  const recognitionRef=useRef<any>(null)
-  const fileRef=useRef<HTMLInputElement>(null)
-
-  useEffect(()=>{
-    const check=()=>setVisible(!!document.querySelector('.v3-shell') && !document.querySelector('.setup-wizard'))
-    check()
-    const observer=new MutationObserver(check)
-    observer.observe(document.body,{childList:true,subtree:true})
-    return ()=>observer.disconnect()
-  },[])
-
+  const[visible,setVisible]=useState(false),[open,setOpen]=useState(false),[agent,setAgent]=useState<'voice'|'vision'|'report'>('voice')
+  const[listening,setListening]=useState(false),[transcript,setTranscript]=useState(''),[interim,setInterim]=useState(''),[voice,setVoice]=useState<VoiceAnalysis|null>(null),[selected,setSelected]=useState<number[]>([])
+  const[file,setFile]=useState<File|null>(null),[filePreview,setFilePreview]=useState(''),[fileNote,setFileNote]=useState(''),[vision,setVision]=useState<VisionAnalysis|null>(null),[visionSelected,setVisionSelected]=useState<number[]>([]),[markDone,setMarkDone]=useState(false)
+  const[reportType,setReportType]=useState('weekly'),[reportDays,setReportDays]=useState(7),[report,setReport]=useState<ReportResult|null>(null)
+  const[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+  const recognitionRef=useRef<any>(null),fileRef=useRef<HTMLInputElement>(null)
+  useEffect(()=>{const check=()=>setVisible(!!document.querySelector('.v3-shell')&&!document.querySelector('.setup-wizard'));check();const o=new MutationObserver(check);o.observe(document.body,{childList:true,subtree:true});return()=>o.disconnect()},[])
   useEffect(()=>()=>{try{recognitionRef.current?.stop()}catch{}},[])
+  const speechSupported=useMemo(()=>typeof window!=='undefined'&&!!((window as any).SpeechRecognition||(window as any).webkitSpeechRecognition),[])
 
-  const speechSupported=useMemo(()=>typeof window!=='undefined' && !!((window as any).SpeechRecognition||(window as any).webkitSpeechRecognition),[])
+  function resetVoice(){setTranscript('');setInterim('');setVoice(null);setSelected([]);setMessage('')}
+  function resetVision(){setFile(null);setFilePreview('');setFileNote('');setVision(null);setVisionSelected([]);setMarkDone(false);setMessage('');if(fileRef.current)fileRef.current.value=''}
+  function startVoice(){setMessage('');const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;if(!SR){setMessage('Este navegador não oferece reconhecimento de voz direto. Use o campo de texto ou um navegador compatível.');return}try{recognitionRef.current?.stop()}catch{}const rec=new SR();rec.lang='pt-BR';rec.continuous=true;rec.interimResults=true;rec.onstart=()=>setListening(true);rec.onend=()=>setListening(false);rec.onerror=(e:any)=>{setListening(false);setMessage(e?.error==='not-allowed'?'Permita o microfone para usar o Agente de Voz.':'Não consegui ouvir. Tente novamente.')};rec.onresult=(event:any)=>{let f='',i='';for(let x=event.resultIndex;x<event.results.length;x++){const p=event.results[x][0].transcript;if(event.results[x].isFinal)f+=p+' ';else i+=p}if(f)setTranscript(v=>(v+' '+f).trim());setInterim(i)};recognitionRef.current=rec;rec.start()}
+  function stopVoice(){try{recognitionRef.current?.stop()}catch{}setListening(false);setInterim('')}
 
-  function reset(){
-    setTranscript('');setInterim('');setAnalysis(null);setPhotoAnalysis(null);setPhotoId(null);setPhotoPreview('');setSelected([]);setMessage('')
-  }
+  async function interpretVoice(){const projectId=activeProjectId(),text=(transcript+' '+interim).trim();if(!projectId)return setMessage('Não consegui identificar a obra ativa.');if(!text)return setMessage('Fale ou digite um comando.');stopVoice();setBusy(true);setMessage('');setVoice(null);try{const r=await api(`/api/os/projects/${projectId}/copilot/interpret`,{method:'POST',body:JSON.stringify({transcript:text})});setVoice(r.analysis);setSelected((r.analysis?.suggestions||[]).map((s:Suggestion)=>s.id))}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
+  async function applyVoice(){const projectId=activeProjectId();if(!projectId||!voice)return;setBusy(true);setMessage('');try{const r=await api(`/api/os/projects/${projectId}/copilot/apply`,{method:'POST',body:JSON.stringify({transcript:transcript.trim(),summary:voice.summary,action:voice.action,taskIds:selected,safety:voice.safety,nextStep:voice.nextStep,createLabel:voice.createLabel})});const count=r.marked?.length||0;setMessage(count?`Comando executado. ${count} alteração(ões) aplicada(s).`:'Registro salvo. Nenhuma alteração automática foi necessária.');setVoice(null);setSelected([]);refreshPortal()}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
 
-  function startVoice(){
-    setMessage('')
-    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition
-    if(!SR){setMessage('Este navegador não oferece reconhecimento de voz direto. Use “Digitar” ou abra no Safari/Chrome atualizado.');setTab('text');return}
-    try{recognitionRef.current?.stop()}catch{}
-    const rec=new SR()
-    rec.lang='pt-BR'; rec.continuous=true; rec.interimResults=true
-    rec.onstart=()=>setListening(true)
-    rec.onend=()=>setListening(false)
-    rec.onerror=(e:any)=>{setListening(false);setMessage(e?.error==='not-allowed'?'Permita o acesso ao microfone no navegador.':'Não consegui ouvir. Tente novamente.')}
-    rec.onresult=(event:any)=>{
-      let finalText='', interimText=''
-      for(let i=event.resultIndex;i<event.results.length;i++){
-        const piece=event.results[i][0].transcript
-        if(event.results[i].isFinal) finalText+=piece+' '
-        else interimText+=piece
-      }
-      if(finalText) setTranscript(v=>(v+' '+finalText).trim())
-      setInterim(interimText)
-    }
-    recognitionRef.current=rec
-    rec.start()
-  }
+  async function chooseFile(e:ChangeEvent<HTMLInputElement>){const f=e.target.files?.[0];if(!f)return;if(!(f.type.startsWith('image/')||f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf'))){setMessage('Envie uma imagem ou PDF.');return}if(f.size>5_000_000){setMessage('Para este protótipo, use arquivo de até 5 MB.');return}setFile(f);setVision(null);setVisionSelected([]);setMessage('');if(f.type.startsWith('image/'))setFilePreview(URL.createObjectURL(f));else setFilePreview('')}
+  async function analyzeFile(){const projectId=activeProjectId();if(!projectId||!file)return setMessage('Selecione uma imagem ou PDF.');setBusy(true);setMessage('');try{const data=await fileToDataUrl(file);const r=await api(`/api/os/projects/${projectId}/vision/analyze`,{method:'POST',body:JSON.stringify({fileData:data,fileName:file.name,mimeType:file.type||'application/pdf',note:fileNote})});setVision(r.analysis);setVisionSelected(r.analysis?.taskIds||[])}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
+  async function confirmVision(){const projectId=activeProjectId();if(!projectId||!vision)return;setBusy(true);setMessage('');try{const r=await api(`/api/os/projects/${projectId}/vision/apply`,{method:'POST',body:JSON.stringify({taskIds:visionSelected,markDone})});setMessage(r.linked?.length?`Análise confirmada e ${r.linked.length} item(ns) atualizado(s).`:'Análise confirmada e mantida como evidência.');refreshPortal()}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
 
-  function stopVoice(){try{recognitionRef.current?.stop()}catch{};setListening(false);setInterim('')}
-
-  async function analyzeVoice(){
-    const projectId=activeProjectId(); const text=(transcript+' '+interim).trim()
-    if(!projectId){setMessage('Não consegui identificar a obra ativa.');return}
-    if(!text){setMessage('Fale ou digite o que aconteceu na obra.');return}
-    stopVoice(); setBusy(true); setMessage(''); setAnalysis(null)
-    try{
-      const r=await api(`/api/os/projects/${projectId}/copilot/interpret`,{method:'POST',body:JSON.stringify({transcript:text})})
-      setAnalysis(r.analysis); setSelected((r.analysis?.suggestions||[]).map((s:Suggestion)=>s.id))
-    }catch(e:any){setMessage(e.message)}finally{setBusy(false)}
-  }
-
-  async function applyVoice(){
-    const projectId=activeProjectId(); if(!projectId||!analysis)return
-    setBusy(true);setMessage('')
-    try{
-      const r=await api(`/api/os/projects/${projectId}/copilot/apply`,{method:'POST',body:JSON.stringify({
-        transcript:transcript.trim(), summary:analysis.summary, action:analysis.action,
-        taskIds:selected, safety:analysis.safety, nextStep:analysis.nextStep
-      })})
-      setMessage(r.marked?.length?`${r.marked.length} item(ns) atualizado(s). Registro salvo no histórico.`:'Registro salvo no histórico. Nenhuma tarefa foi alterada automaticamente.')
-      setAnalysis(null);setSelected([])
-      window.dispatchEvent(new CustomEvent('obra360:refresh'))
-    }catch(e:any){setMessage(e.message)}finally{setBusy(false)}
-  }
-
-  async function choosePhoto(e:ChangeEvent<HTMLInputElement>){
-    const file=e.target.files?.[0]; if(!file)return
-    const projectId=activeProjectId(); if(!projectId){setMessage('Não consegui identificar a obra ativa.');return}
-    setBusy(true);setMessage('');setPhotoAnalysis(null)
-    try{
-      const dataUrl=await imageToDataUrl(file);setPhotoPreview(dataUrl)
-      const r=await api(`/api/os/projects/${projectId}/photos/analyze`,{method:'POST',body:JSON.stringify({dataUrl,caption:transcript.trim()})})
-      setPhotoAnalysis(r.analysis);setPhotoId(r.photo?.id||null)
-    }catch(e:any){setMessage(e.message)}finally{setBusy(false);if(fileRef.current)fileRef.current.value=''}
-  }
-
-  async function confirmPhoto(markDone:boolean){
-    const projectId=activeProjectId(); if(!projectId||!photoId||!photoAnalysis?.taskId)return
-    setBusy(true);setMessage('')
-    try{
-      const r=await api(`/api/os/projects/${projectId}/photos/${photoId}/link`,{method:'PATCH',body:JSON.stringify({taskId:photoAnalysis.taskId,markDone})})
-      if(r.needsValidation)setMessage('Foto vinculada. A conclusão deste item precisa ser confirmada pela equipe técnica.')
-      else if(r.marked)setMessage('Foto vinculada e item marcado como feito.')
-      else setMessage('Foto vinculada ao checklist.')
-      window.dispatchEvent(new CustomEvent('obra360:refresh'))
-    }catch(e:any){setMessage(e.message)}finally{setBusy(false)}
-  }
+  async function generateReport(){const projectId=activeProjectId();if(!projectId)return setMessage('Não consegui identificar a obra ativa.');setBusy(true);setMessage('');setReport(null);try{const r=await api(`/api/os/projects/${projectId}/reports/generate`,{method:'POST',body:JSON.stringify({type:reportType,days:reportDays})});setReport(r.report);refreshPortal()}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
+  async function copyReport(){if(!report)return;await navigator.clipboard.writeText(report.content);setMessage('Relatório copiado.')}
+  function downloadReport(){if(!report)return;const blob=new Blob([report.content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(report.title||'relatorio-obra360').replace(/[^a-zA-Z0-9-_]+/g,'-').toLowerCase()+'.txt';a.click();URL.revokeObjectURL(url)}
 
   if(!visible)return null
-
   return <>
-    <button className="autopilot-fab" onClick={()=>{setOpen(true);setTab('voice')}} aria-label="Registrar obra">
-      <span className="fab-pulse"><Sparkles size={17}/></span><div><small>OBRA360 COPILOT</small><b>Registrar obra</b></div><Mic size={19}/>
-    </button>
+    <button className="autopilot-fab" onClick={()=>setOpen(true)} aria-label="Abrir agentes Obra360"><span className="fab-pulse"><Sparkles size={17}/></span><div><small>OBRA360 AGENTS</small><b>Falar • Ver • Relatar</b></div><Bot size={20}/></button>
+    {open&&<div className="autopilot-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><section className="autopilot-sheet agent-sheet">
+      <header className="autopilot-head"><div><span><WandSparkles size={15}/> CENTRAL DE AGENTES</span><h2>A obra pode falar com o sistema.</h2><p>Use voz para comandar, imagem/PDF para interpretar evidências e o agente de relatórios para transformar o histórico em informação pronta.</p></div><button onClick={()=>{stopVoice();setOpen(false)}}><X size={20}/></button></header>
+      <div className="agent-cards">
+        <button className={agent==='voice'?'active voice':''} onClick={()=>{setAgent('voice');setMessage('')}}><Mic size={21}/><span><b>Agente de Voz</b><small>Comandos, perguntas e diário</small></span></button>
+        <button className={agent==='vision'?'active vision':''} onClick={()=>{setAgent('vision');setMessage('')}}><FileSearch size={21}/><span><b>Visão & PDF</b><small>Fotos, projetos e documentos</small></span></button>
+        <button className={agent==='report'?'active report':''} onClick={()=>{setAgent('report');setMessage('')}}><ClipboardCheck size={21}/><span><b>Agente de Relatórios</b><small>Resumo semanal, técnico e SST</small></span></button>
+      </div>
 
-    {open&&<div className="autopilot-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}>
-      <section className="autopilot-sheet">
-        <header className="autopilot-head">
-          <div><span><Sparkles size={15}/> COPILOTO DE CAMPO</span><h2>Conte o que aconteceu. O sistema organiza.</h2><p>Fale, fotografe ou digite. O Obra360 sugere a etapa, o checklist e os próximos passos para você apenas confirmar.</p></div>
-          <button onClick={()=>{stopVoice();setOpen(false)}}><X size={20}/></button>
-        </header>
+      {agent==='voice'&&<div className="agent-workspace">
+        <div className={`voice-orb ${listening?'listening':''}`}><button onClick={listening?stopVoice:startVoice}>{listening?<MicOff size={31}/>:<Mic size={31}/>}</button><div><b>{listening?'Estou ouvindo…':'Fale como você falaria com uma pessoa'}</b><span>{speechSupported?'“Marque o estudo preliminar como feito”, “o que falta para a Prefeitura?”, “adicione uma etapa de paisagismo”.':'Você ainda pode digitar o comando abaixo.'}</span></div></div>
+        <label className="transcript-box"><span>COMANDO / RELATO</span><textarea value={(transcript+(interim?' '+interim:'')).trim()} onChange={e=>{setTranscript(e.target.value);setInterim('')}} placeholder="Ex.: Hoje terminamos a armação da laje. Falta proteger a borda. O que eu preciso fazer amanhã?"/></label>
+        <div className="agent-examples"><span onClick={()=>setTranscript('O que falta para a Prefeitura?')}>O que falta para a Prefeitura?</span><span onClick={()=>setTranscript('Marque o estudo preliminar como feito')}>Marcar uma tarefa</span><span onClick={()=>setTranscript('Adicione uma etapa de paisagismo')}>Adicionar etapa</span></div>
+        <div className="autopilot-actions"><button className="secondary" onClick={resetVoice}><RotateCcw size={16}/> Limpar</button><button className="primary" onClick={interpretVoice} disabled={busy}>{busy?<LoaderCircle className="spin" size={17}/>:<Sparkles size={17}/>} Entender comando</button></div>
+      </div>}
 
-        <div className="autopilot-tabs">
-          <button className={tab==='voice'?'active':''} onClick={()=>setTab('voice')}><Mic size={17}/> Falar</button>
-          <button className={tab==='photo'?'active':''} onClick={()=>setTab('photo')}><Camera size={17}/> Foto</button>
-          <button className={tab==='text'?'active':''} onClick={()=>setTab('text')}><Keyboard size={17}/> Digitar</button>
-        </div>
+      {agent==='vision'&&<div className="agent-workspace">
+        {!file?<button className="camera-drop agent-drop" onClick={()=>fileRef.current?.click()}><div className="dual-icon"><Camera size={29}/><FileText size={27}/></div><b>Envie uma foto ou PDF da obra</b><span>Foto de execução, projeto arquitetônico, alvará, ART/RRT, PGR, memorial, orçamento ou outro documento. O agente tenta relacionar o arquivo ao roteiro.</span></button>:<div className="file-review">{filePreview?<img src={filePreview}/>:<div className="pdf-preview"><FileText size={38}/><b>{file.name}</b><span>{(file.size/1024/1024).toFixed(2)} MB • PDF</span></div>}<button onClick={resetVision}><RotateCcw size={15}/> Trocar</button></div>}
+        <input ref={fileRef} hidden type="file" accept="image/*,application/pdf,.pdf" capture={undefined} onChange={chooseFile}/>
+        {file&&<label className="transcript-box compact"><span>CONTEXTO OPCIONAL</span><textarea value={fileNote} onChange={e=>setFileNote(e.target.value)} placeholder="Ex.: foto tirada antes da concretagem / documento recebido da Prefeitura"/></label>}
+        <div className="autopilot-actions"><button className="secondary" onClick={()=>fileRef.current?.click()}><ImagePlus size={16}/> Escolher arquivo</button><button className="primary" onClick={analyzeFile} disabled={busy||!file}>{busy?<LoaderCircle className="spin" size={17}/>:<FileSearch size={17}/>} Analisar</button></div>
+      </div>}
 
-        {(tab==='voice'||tab==='text')&&<div className="voice-workspace">
-          {tab==='voice'&&<div className={`voice-orb ${listening?'listening':''}`}>
-            <button onClick={listening?stopVoice:startVoice}>{listening?<MicOff size={31}/>:<Mic size={31}/>}</button>
-            <div><b>{listening?'Estou ouvindo…':'Toque e fale naturalmente'}</b><span>{speechSupported?'Ex.: “Terminamos a armação da laje e falta proteção na borda.”':'Reconhecimento de voz indisponível neste navegador.'}</span></div>
-          </div>}
-          <label className="transcript-box"><span>{tab==='voice'?'TRANSCRIÇÃO':'REGISTRO'}</span><textarea value={(transcript+(interim?' '+interim:'')).trim()} onChange={e=>{setTranscript(e.target.value);setInterim('')}} placeholder="Ex.: Hoje concluímos a impermeabilização dos banheiros. Amanhã começa o revestimento. A proteção do vão da escada ainda precisa ser colocada."/></label>
-          <div className="autopilot-actions"><button className="secondary" onClick={reset}><RotateCcw size={16}/> Limpar</button><button className="primary" onClick={analyzeVoice} disabled={busy}>{busy?<LoaderCircle className="spin" size={17}/>:<Sparkles size={17}/>} Interpretar registro</button></div>
-        </div>}
+      {agent==='report'&&<div className="agent-workspace report-workspace"><div className="report-config"><div><small>TIPO DE RELATÓRIO</small><select value={reportType} onChange={e=>setReportType(e.target.value)}><option value="weekly">Semanal da obra</option><option value="client">Resumo para o proprietário</option><option value="technical">Acompanhamento técnico</option><option value="safety">Segurança do trabalho</option><option value="executive">Executivo</option></select></div><div><small>PERÍODO</small><select value={reportDays} onChange={e=>setReportDays(Number(e.target.value))}><option value={7}>7 dias</option><option value={14}>14 dias</option><option value={30}>30 dias</option><option value={60}>60 dias</option></select></div></div><div className="report-agent-explainer"><ClipboardCheck size={23}/><div><b>O agente monta o relatório a partir do que já existe.</b><span>Checklist, eventos, arquivos analisados, fotos e próximos passos. Se não houver dado, ele deve indicar a ausência em vez de inventar.</span></div></div><button className="primary report-generate" onClick={generateReport} disabled={busy}>{busy?<LoaderCircle className="spin" size={18}/>:<Sparkles size={18}/>} Gerar relatório</button></div>}
 
-        {tab==='photo'&&<div className="photo-workspace">
-          {!photoPreview?<button className="camera-drop" onClick={()=>fileRef.current?.click()}><ImagePlus size={34}/><b>Tirar foto ou escolher da galeria</b><span>A imagem será analisada para sugerir a etapa e um item do checklist. A IA não aprova tecnicamente o serviço.</span></button>:<div className="photo-review"><img src={photoPreview}/><button onClick={()=>{setPhotoPreview('');setPhotoAnalysis(null);setPhotoId(null)}}><RotateCcw size={15}/> Trocar foto</button></div>}
-          <input ref={fileRef} hidden type="file" accept="image/*" capture="environment" onChange={choosePhoto}/>
-          {!photoPreview&&<button className="primary wide" onClick={()=>fileRef.current?.click()}><Camera size={17}/> Abrir câmera</button>}
-        </div>}
+      {voice&&<div className="copilot-result agent-result"><div className="result-title"><span><Bot size={18}/> AGENTE DE VOZ ENTENDEU</span><em>{voice.mode==='ai'?'IA + obra':'dados da obra'}</em></div><h3>{voice.summary}</h3>{voice.action==='query'&&voice.answer&&<div className="voice-answer"><small>RESPOSTA</small><p>{voice.answer}</p></div>}{voice.createLabel&&<div className="next-suggest"><span>ALTERAÇÃO PROPOSTA</span><b>{voice.action==='create_stage'?'Criar etapa: ':'Criar atividade: '}{voice.createLabel}</b></div>}{!!voice.suggestions?.length&&<div className="suggestion-list"><small>ITENS RELACIONADOS</small>{voice.suggestions.map(s=><label key={s.id}><input type="checkbox" checked={selected.includes(s.id)} onChange={()=>setSelected(v=>v.includes(s.id)?v.filter(x=>x!==s.id):[...v,s.id])}/><span><b>{s.title}</b><em>{s.discipline?human(s.discipline):'Obra'}{s.confidence?` • ${Math.round(s.confidence)}%`:''}</em></span></label>)}</div>}{!!voice.safety?.length&&<div className="safety-suggestions"><small><AlertTriangle size={14}/> PONTOS PARA VALIDAR</small>{voice.safety.map((s,i)=><span key={i}>{s}</span>)}</div>}{voice.nextStep&&voice.action!=='query'&&<div className="next-suggest"><span>PRÓXIMO PASSO SUGERIDO</span><b>{voice.nextStep}</b></div>}{voice.action!=='query'&&<div className="autopilot-actions"><button className="secondary" onClick={()=>setVoice(null)}>Cancelar</button><button className="primary" onClick={applyVoice} disabled={busy}><Check size={17}/> Confirmar comando</button></div>}</div>}
 
-        {analysis&&<div className="copilot-result">
-          <div className="result-title"><span><CheckCircle2 size={18}/> O COPILOTO ENTENDEU</span><em>{analysis.mode==='ai'?'IA + dados da obra':'dados da obra'}</em></div>
-          <h3>{analysis.summary}</h3>
-          {!!analysis.suggestions?.length&&<div className="suggestion-list"><small>SUGESTÕES PARA O CHECKLIST</small>{analysis.suggestions.map(s=><label key={s.id}><input type="checkbox" checked={selected.includes(s.id)} onChange={()=>setSelected(v=>v.includes(s.id)?v.filter(x=>x!==s.id):[...v,s.id])}/><span><b>{s.title}</b><em>{s.discipline?human(s.discipline):'Obra'}{s.confidence?` • ${Math.round(s.confidence)}%`:''}</em></span></label>)}</div>}
-          {!!analysis.safety?.length&&<div className="safety-suggestions"><small><AlertTriangle size={14}/> ATENÇÃO VISUAL/RELATADA</small>{analysis.safety.map((s,i)=><span key={i}>{s}</span>)}</div>}
-          {analysis.nextStep&&<div className="next-suggest"><span>PRÓXIMO PASSO SUGERIDO</span><b>{analysis.nextStep}</b></div>}
-          <div className="autopilot-actions"><button className="secondary" onClick={()=>setAnalysis(null)}>Voltar</button><button className="primary" onClick={applyVoice} disabled={busy}><Check size={17}/> Confirmar sugestões</button></div>
-        </div>}
+      {vision&&<div className="copilot-result agent-result vision-result"><div className="result-title"><span><FileSearch size={18}/> AGENTE DE VISÃO / DOCUMENTOS</span><em>{Math.round(Number(vision.confidence||0))}% confiança</em></div><h3>{vision.title}</h3><div className="vision-meta"><span>{vision.category}</span><span>{human(vision.discipline)}</span>{vision.stageKey&&<span>{human(vision.stageKey)}</span>}</div><p className="vision-summary">{vision.summary}</p>{!!vision.observations?.length&&<ResultList title="O QUE FOI IDENTIFICADO" items={vision.observations}/>} {!!vision.architecture?.length&&<ResultList title="ARQUITETURA / PROJETO" items={vision.architecture}/>} {!!vision.municipality?.length&&<ResultList title="PREFEITURA / REGULARIZAÇÃO" items={vision.municipality}/>} {!!vision.safety?.length&&<div className="safety-suggestions"><small><AlertTriangle size={14}/> SEGURANÇA — VALIDAR NO LOCAL</small>{vision.safety.map((s,i)=><span key={i}>{s}</span>)}</div>}{!!vision.checklistSuggestions?.length&&<div className="suggestion-list"><small>CHECKLIST RELACIONADO</small>{vision.checklistSuggestions.map((s,i)=><label key={i}><input type="checkbox" checked={visionSelected.includes(vision.taskIds[i])} disabled={!vision.taskIds[i]} onChange={()=>{const id=vision.taskIds[i];if(id)setVisionSelected(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id])}}/><span><b>{s}</b><em>Confirmar associação humana</em></span></label>)}</div>} {!!vision.taskIds?.length&&<label className="mark-done-toggle"><input type="checkbox" checked={markDone} onChange={e=>setMarkDone(e.target.checked)}/><span><b>Também marcar itens selecionados como feitos</b><small>Use somente quando você tiver certeza. A IA não faz aprovação técnica sozinha.</small></span></label>}<div className="autopilot-actions"><button className="secondary" onClick={()=>setVision(null)}>Rever</button><button className="primary" onClick={confirmVision} disabled={busy}><Check size={17}/> Confirmar leitura</button></div></div>}
 
-        {photoAnalysis&&<div className="copilot-result photo-result">
-          <div className="result-title"><span><Sparkles size={18}/> LEITURA DA FOTO</span><em>{Math.round(Number(photoAnalysis.confidence||0))}% confiança</em></div>
-          <h3>{photoAnalysis.summary}</h3>
-          {photoAnalysis.taskId?<p className="linked-task">A foto foi associada ao item mais provável do checklist.</p>:<p className="linked-task muted">Não encontrei correspondência segura com um item pendente. A foto foi salva mesmo assim.</p>}
-          {!!photoAnalysis.tags?.length&&<div className="tag-row">{photoAnalysis.tags.map(t=><span key={t}>{t}</span>)}</div>}
-          {!!photoAnalysis.safety?.length&&<div className="safety-suggestions"><small><AlertTriangle size={14}/> POSSÍVEIS PONTOS VISUAIS</small>{photoAnalysis.safety.map((s,i)=><span key={i}>{s}</span>)}</div>}
-          {photoAnalysis.taskId&&<div className="autopilot-actions"><button className="secondary" onClick={()=>confirmPhoto(false)}>Só vincular</button><button className="primary" onClick={()=>confirmPhoto(true)}><Check size={17}/> Vincular e marcar feito</button></div>}
-        </div>}
-
-        {message&&<div className={`autopilot-message ${message.toLowerCase().includes('erro')?'error':''}`}>{message}</div>}
-      </section>
-    </div>}
+      {report&&<div className="copilot-result agent-result report-result"><div className="result-title"><span><ClipboardCheck size={18}/> RELATÓRIO GERADO</span><em>{report.mode==='ai'?'IA + histórico':'dados do portal'}</em></div><h3>{report.title}</h3><span className="report-period">{report.periodLabel}</span><pre>{report.content}</pre><div className="autopilot-actions report-actions"><button className="secondary" onClick={copyReport}><Copy size={16}/> Copiar</button><button className="secondary" onClick={downloadReport}><Download size={16}/> Baixar .txt</button><button className="primary" onClick={generateReport}><Sparkles size={16}/> Atualizar relatório</button></div></div>}
+      {message&&<div className={`autopilot-message ${/erro|falha|não consegui/i.test(message)?'error':''}`}>{message}</div>}
+    </section></div>}
   </>
 }
 
-function human(v=''){return v.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}
+function ResultList({title,items}:{title:string;items:string[]}){return <div className="result-list"><small>{title}</small>{items.map((x,i)=><span key={i}><CheckCircle2 size={14}/>{x}</span>)}</div>}
