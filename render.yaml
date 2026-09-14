@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: obra360-portal
+    runtime: node
+    repo: https://github.com/luanmagalhaes2464-sys/obra360
+    branch: main
+    plan: free
+    region: oregon
+    rootDir: portal
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: obra360-db
+          property: connectionString
+      - key: ADMIN_NAME
+        value: Equipe Obra360
+      - key: ADMIN_EMAIL
+        value: admin@obra360.local
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.6-terra
+
+databases:
+  - name: obra360-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: "17"
+    databaseName: obra360_db
+    user: obra360_db_user
