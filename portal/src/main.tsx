@@ -1,15 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import AppPassV2 from './AppPassV2'
-import PassAdminTools from './PassAdminTools'
-import PublicPass from './PublicPass'
-import './pass.css'
-import './pass-extra.css'
-
-const isPublicPass = window.location.pathname.startsWith('/public/pass/')
+import AppOS from './AppOS'
+import './os.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isPublicPass ? <PublicPass /> : <><AppPassV2 /><PassAdminTools /></>}
+    <AppOS />
   </React.StrictMode>,
 )
