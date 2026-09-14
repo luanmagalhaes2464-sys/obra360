@@ -1,12 +1,12 @@
 {
   "name": "obra360-portal",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "start": "node server.mjs"
+    "start": "node server-pass.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -15,9 +15,9 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.468.0",
     "pg": "^8.13.1",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "recharts": "^2.15.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
