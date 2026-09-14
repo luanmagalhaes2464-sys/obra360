@@ -4,6 +4,7 @@ import AppOSV3 from './AppOSV3'
 import AutopilotDock from './AutopilotDock'
 import './os-v3.css'
 import './autopilot.css'
+import './agents.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
