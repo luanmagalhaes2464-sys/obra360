@@ -4,6 +4,7 @@ import AppPassV2 from './AppPassV2'
 import PassAdminTools from './PassAdminTools'
 import PublicPass from './PublicPass'
 import './pass.css'
+import './pass-extra.css'
 
 const isPublicPass = window.location.pathname.startsWith('/public/pass/')
 
