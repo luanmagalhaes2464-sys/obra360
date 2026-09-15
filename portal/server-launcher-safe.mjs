@@ -63,35 +63,53 @@ const oldInstruction = "Você é o Agente de Voz do Obra360. Interprete comandos
 const newInstruction = "Você é o Copiloto de Voz do Obra360. Converse em português brasileiro com naturalidade, educação e confiança, como uma assistente experiente de obra. Use frases curtas, fluidas e conversacionais; evite tom burocrático ou robótico. Use o primeiro nome do usuário quando couber, sem repetir em toda frase. Interprete comandos e perguntas sobre a obra. Nunca invente fatos, datas ou prazos e nunca declare validação técnica que não esteja registrada. Para perguntas, use action=query e responda somente com o que existe no contexto; se faltar um dado, diga isso naturalmente. Para comandos, use action done, reopen, na, create_task, create_stage, attention ou log. Retorne SOMENTE JSON válido: {summary:string,action:string,taskIds:number[],safety:string[],nextStep:string,answer:string,createLabel:string,confidence:number}. Só use ids fornecidos. O cliente pode confirmar comandos simples por voz; controles técnicos, financeiros e regulatórios podem exigir confirmação explícita."
 if (agentRoutes.includes(oldInstruction)) agentRoutes = agentRoutes.replace(oldInstruction, newInstruction)
 
+const responseHook = "  res.json({analysis})\n})\n\napp.post('/api/os/projects/:id/copilot/apply'"
+const responseHookReplacement = `  if(process.env.GEMINI_API_KEY&&analysis?.action==='query'&&analysis.answer){try{
+    const prompt='Você vai reescrever uma resposta factual do sistema Obra360 para ela soar como fala humana. Não acrescente, retire ou altere fatos. Seja educado, direto e natural em português brasileiro. Use o primeiro nome do usuário no máximo uma vez. Não use markdown, aspas ou introduções.\\n\\nUSUÁRIO: '+(req.user?.name||'usuário')+'\\nPERGUNTA: '+transcript+'\\nRESPOSTA FACTUAL: '+analysis.answer
+    const gr=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.35,maxOutputTokens:220}})})
+    if(gr.ok){const gd=await gr.json();const rewritten=gd?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();if(rewritten)analysis.answer=rewritten}
+  }catch(e){console.error('gemini-rewrite',e)}}
+  res.json({analysis})
+})
+
+app.post('/api/os/projects/:id/copilot/apply'`
+if (agentRoutes.includes(responseHook)) agentRoutes = agentRoutes.replace(responseHook, responseHookReplacement)
+
 const ttsRoutes = String.raw`
+function obra360PcmToWav(pcm,sampleRate=24000,channels=1,bitsPerSample=16){
+  const header=Buffer.alloc(44),byteRate=sampleRate*channels*bitsPerSample/8,blockAlign=channels*bitsPerSample/8
+  header.write('RIFF',0);header.writeUInt32LE(36+pcm.length,4);header.write('WAVE',8);header.write('fmt ',12);header.writeUInt32LE(16,16);header.writeUInt16LE(1,20);header.writeUInt16LE(channels,22);header.writeUInt32LE(sampleRate,24);header.writeUInt32LE(byteRate,28);header.writeUInt16LE(blockAlign,32);header.writeUInt16LE(bitsPerSample,34);header.write('data',36);header.writeUInt32LE(pcm.length,40)
+  return Buffer.concat([header,pcm])
+}
+
 app.post('/api/voice/speak',auth,async(req,res)=>{
   const input=String(req.body?.text||'').replace(/\s+/g,' ').trim().slice(0,2200)
   if(!input)return res.status(400).json({error:'Texto vazio'})
-  if(!OPENAI_API_KEY)return res.status(503).json({error:'Voz neural não configurada'})
-  const allowed=new Set(['marin','cedar','coral','nova','shimmer','sage','alloy'])
-  const requested=String(req.body?.voice||process.env.OPENAI_TTS_VOICE||'marin').toLowerCase()
-  const voice=allowed.has(requested)?requested:'marin'
+  const key=process.env.GEMINI_API_KEY
+  if(!key)return res.status(503).json({error:'Voz Gemini não configurada'})
+  const allowed=new Set(['Kore','Orus','Alnilam','Achird','Sulafat','Callirrhoe','Aoede','Schedar','Gacrux','Vindemiatrix'])
+  const requested=String(req.body?.voice||process.env.GEMINI_TTS_VOICE||'Kore')
+  const voice=allowed.has(requested)?requested:'Kore'
+  const style='Fale em português brasileiro. Voz segura, natural, acolhedora e profissional; firme sem ser fria. Ritmo de conversa, entonação humana e pausas naturais. Não soe robótica, trêmula, assustada ou excessivamente animada. Leia somente a fala abaixo, sem dizer estas instruções.\\n\\nFALA: '+input
   try{
-    const r=await fetch('https://api.openai.com/v1/audio/speech',{
+    const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent',{
       method:'POST',
-      headers:{'Authorization':'Bearer '+OPENAI_API_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'gpt-4o-mini-tts',
-        voice,
-        input,
-        instructions:'Fale em português brasileiro com voz natural, firme, acolhedora e profissional. Soe confiante e tranquila, nunca trêmula, assustada ou robótica. Use ritmo conversacional, entonação humana e pausas naturais, como uma assistente experiente falando diretamente com o usuário.',
-        response_format:'mp3'
-      })
+      headers:{'Content-Type':'application/json','x-goog-api-key':key},
+      body:JSON.stringify({contents:[{parts:[{text:style}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}})
     })
-    if(!r.ok){const detail=await r.text().catch(()=>String(r.status));console.error('tts-openai',r.status,detail.slice(0,300));return res.status(502).json({error:'Falha ao gerar voz natural'})}
-    const bytes=Buffer.from(await r.arrayBuffer())
-    res.setHeader('Content-Type','audio/mpeg')
+    if(!r.ok){const detail=await r.text().catch(()=>String(r.status));console.error('tts-gemini',r.status,detail.slice(0,500));return res.status(r.status===429?429:502).json({error:r.status===429?'Limite gratuito de voz atingido':'Falha ao gerar voz natural'})}
+    const d=await r.json(),part=d?.candidates?.[0]?.content?.parts?.find(p=>p?.inlineData?.data)
+    const data=part?.inlineData?.data
+    if(!data){console.error('tts-gemini sem áudio',JSON.stringify(d).slice(0,600));return res.status(502).json({error:'Gemini não retornou áudio'})}
+    const pcm=Buffer.from(data,'base64'),wav=obra360PcmToWav(pcm,24000,1,16)
+    res.setHeader('Content-Type','audio/wav')
     res.setHeader('Cache-Control','no-store')
-    res.send(bytes)
-  }catch(e){console.error('tts-openai',e);res.status(502).json({error:'Falha ao gerar voz natural'})}
+    res.setHeader('X-Voice-Provider','gemini')
+    res.send(wav)
+  }catch(e){console.error('tts-gemini',e);res.status(502).json({error:'Falha ao gerar voz natural'})}
 })
-app.get('/api/voice/status',auth,(_req,res)=>res.json({naturalVoice:Boolean(OPENAI_API_KEY),voice:process.env.OPENAI_TTS_VOICE||'marin'}))
-console.log('Obra360 voz neural:',OPENAI_API_KEY?'ativa':'sem OPENAI_API_KEY; usando fallback do aparelho')
+app.get('/api/voice/status',auth,(_req,res)=>res.json({naturalVoice:Boolean(process.env.GEMINI_API_KEY),provider:process.env.GEMINI_API_KEY?'gemini':'browser',model:'gemini-3.1-flash-tts-preview',voice:process.env.GEMINI_TTS_VOICE||'Kore',freeTier:true}))
+console.log('Obra360 voz natural:',process.env.GEMINI_API_KEY?'Gemini configurado':'sem GEMINI_API_KEY; usando fallback do aparelho')
 `
 
 source = source.replace(anchor, agentRoutes + '\n' + ttsRoutes + '\n' + anchor)
