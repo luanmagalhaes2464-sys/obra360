@@ -56,14 +56,45 @@ const newReturn = "  return {summary:transcript.trim(),action,suggestions:action
 if (agentRoutes.includes(oldReturn)) agentRoutes = agentRoutes.replace(oldReturn, newReturn)
 
 const oldContext = "    const context='PROJETO: '+b.project.name+'\\nPROGRESSO: '+b.summary.progress+'%\\nPRÓXIMA AÇÃO: '+(b.summary.nextTask?.title||'nenhuma')+'\\nTAREFAS:\\n'+taskList+'\\n\\nCOMANDO/RELATO:\\n'+transcript"
-const newContext = "    const context='PROJETO: '+b.project.name+'\\nPROGRESSO: '+b.summary.progress+'%\\nPREVISÃO DE CONCLUSÃO: '+(b.project.planned_end_date||'não cadastrada')+'\\nORÇAMENTO: '+agentMoney(b.project.budget)+'\\nREALIZADO: '+agentMoney(b.project.spent)+'\\nPRÓXIMA AÇÃO: '+(b.summary.nextTask?.title||'nenhuma')+'\\nTAREFAS:\\n'+taskList+'\\n\\nCOMANDO/RELATO:\\n'+transcript"
+const newContext = "    const context='USUÁRIO: '+(req.user?.name||'usuário')+'\\nPROJETO: '+b.project.name+'\\nPROGRESSO: '+b.summary.progress+'%\\nPREVISÃO DE CONCLUSÃO: '+(b.project.planned_end_date||'não cadastrada')+'\\nORÇAMENTO: '+agentMoney(b.project.budget)+'\\nREALIZADO: '+agentMoney(b.project.spent)+'\\nPRÓXIMA AÇÃO: '+(b.summary.nextTask?.title||'nenhuma')+'\\nTAREFAS:\\n'+taskList+'\\n\\nCOMANDO/RELATO:\\n'+transcript"
 if (agentRoutes.includes(oldContext)) agentRoutes = agentRoutes.replace(oldContext, newContext)
 
 const oldInstruction = "Você é o Agente de Voz do Obra360. Interprete comandos e perguntas sobre uma obra. Nunca invente fatos e nunca valide tecnicamente um serviço. Para perguntas, use action=query e responda apenas com base no contexto. Para comandos, use action done, reopen, na, create_task, create_stage, attention ou log. Retorne SOMENTE JSON válido: {summary:string,action:string,taskIds:number[],safety:string[],nextStep:string,answer:string,createLabel:string,confidence:number}. Só use ids fornecidos. Alterações sempre serão confirmadas pelo humano."
-const newInstruction = "Você é o Copiloto de Voz do Obra360. Converse em português brasileiro de forma natural, curta e clara, como um bom assistente de campo falando com uma pessoa, sem linguagem robótica. Interprete comandos e perguntas sobre a obra. Nunca invente fatos, datas ou prazos e nunca valide tecnicamente um serviço. Para perguntas, use action=query e responda somente com o que existe no contexto; se faltar um dado, diga isso naturalmente. Para comandos, use action done, reopen, na, create_task, create_stage, attention ou log. Retorne SOMENTE JSON válido: {summary:string,action:string,taskIds:number[],safety:string[],nextStep:string,answer:string,createLabel:string,confidence:number}. Só use ids fornecidos. Alterações sempre serão confirmadas pelo humano."
+const newInstruction = "Você é o Copiloto de Voz do Obra360. Converse em português brasileiro com naturalidade, educação e confiança, como uma assistente experiente de obra. Use frases curtas, fluidas e conversacionais; evite tom burocrático ou robótico. Use o primeiro nome do usuário quando couber, sem repetir em toda frase. Interprete comandos e perguntas sobre a obra. Nunca invente fatos, datas ou prazos e nunca declare validação técnica que não esteja registrada. Para perguntas, use action=query e responda somente com o que existe no contexto; se faltar um dado, diga isso naturalmente. Para comandos, use action done, reopen, na, create_task, create_stage, attention ou log. Retorne SOMENTE JSON válido: {summary:string,action:string,taskIds:number[],safety:string[],nextStep:string,answer:string,createLabel:string,confidence:number}. Só use ids fornecidos. O cliente pode confirmar comandos simples por voz; controles técnicos, financeiros e regulatórios podem exigir confirmação explícita."
 if (agentRoutes.includes(oldInstruction)) agentRoutes = agentRoutes.replace(oldInstruction, newInstruction)
 
-source = source.replace(anchor, agentRoutes + '\n' + anchor)
+const ttsRoutes = String.raw`
+app.post('/api/voice/speak',auth,async(req,res)=>{
+  const input=String(req.body?.text||'').replace(/\s+/g,' ').trim().slice(0,2200)
+  if(!input)return res.status(400).json({error:'Texto vazio'})
+  if(!OPENAI_API_KEY)return res.status(503).json({error:'Voz neural não configurada'})
+  const allowed=new Set(['marin','cedar','coral','nova','shimmer','sage','alloy'])
+  const requested=String(req.body?.voice||process.env.OPENAI_TTS_VOICE||'marin').toLowerCase()
+  const voice=allowed.has(requested)?requested:'marin'
+  try{
+    const r=await fetch('https://api.openai.com/v1/audio/speech',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+OPENAI_API_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'gpt-4o-mini-tts',
+        voice,
+        input,
+        instructions:'Fale em português brasileiro com voz natural, firme, acolhedora e profissional. Soe confiante e tranquila, nunca trêmula, assustada ou robótica. Use ritmo conversacional, entonação humana e pausas naturais, como uma assistente experiente falando diretamente com o usuário.',
+        response_format:'mp3'
+      })
+    })
+    if(!r.ok){const detail=await r.text().catch(()=>String(r.status));console.error('tts-openai',r.status,detail.slice(0,300));return res.status(502).json({error:'Falha ao gerar voz natural'})}
+    const bytes=Buffer.from(await r.arrayBuffer())
+    res.setHeader('Content-Type','audio/mpeg')
+    res.setHeader('Cache-Control','no-store')
+    res.send(bytes)
+  }catch(e){console.error('tts-openai',e);res.status(502).json({error:'Falha ao gerar voz natural'})}
+})
+app.get('/api/voice/status',auth,(_req,res)=>res.json({naturalVoice:Boolean(OPENAI_API_KEY),voice:process.env.OPENAI_TTS_VOICE||'marin'}))
+console.log('Obra360 voz neural:',OPENAI_API_KEY?'ativa':'sem OPENAI_API_KEY; usando fallback do aparelho')
+`
+
+source = source.replace(anchor, agentRoutes + '\n' + ttsRoutes + '\n' + anchor)
 
 await fs.writeFile(runtimePath, source, 'utf8')
 await import('./.server-v3-runtime.mjs')
