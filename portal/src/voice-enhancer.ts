@@ -1,4 +1,5 @@
 const AUTO_KEY = 'obra360_voice_conversation_auto'
+const VOICE_KEY = 'obra360_voice_selected'
 const SILENCE_MS = 1450
 let lastSpoken = ''
 let sessionArmed = false
@@ -8,7 +9,7 @@ let programmaticClick = false
 let lastTranscript = ''
 let lastTranscriptChange = 0
 let lastAnswer = ''
-let greeted = false
+let responseCount = 0
 
 function autoEnabled() {
   const saved = localStorage.getItem(AUTO_KEY)
@@ -21,7 +22,7 @@ function setAutoEnabled(value: boolean) {
 
 function firstName() {
   const name = document.querySelector('.v4-side-user b')?.textContent?.trim() || ''
-  return name.split(/\s+/).filter(Boolean)[0] || 'tudo bem'
+  return name.split(/\s+/).filter(Boolean)[0] || 'Olá'
 }
 
 function getVoiceParts() {
@@ -37,22 +38,33 @@ function getVoiceParts() {
   return { agent, orb, mic, textarea, understand, clear, result }
 }
 
-function getBestPortugueseVoice() {
+function portugueseVoices() {
   const voices = window.speechSynthesis?.getVoices?.() || []
   const ptBr = voices.filter(v => /^pt(-|_)?BR/i.test(v.lang) || /^pt-BR$/i.test(v.lang))
+  const pt = voices.filter(v => /^pt/i.test(v.lang))
+  return ptBr.length ? ptBr : pt
+}
+
+function selectedVoice() {
+  const voices = portugueseVoices()
+  const saved = localStorage.getItem(VOICE_KEY)
+  if (saved) {
+    const found = voices.find(v => v.voiceURI === saved || v.name === saved)
+    if (found) return found
+  }
   const preferred = [
     'Luciana', 'Francisca', 'Flo', 'Joana', 'Camila', 'Vitória', 'Vitoria', 'Maria',
     'Google português do Brasil', 'Portuguese (Brazil)'
   ]
   for (const name of preferred) {
-    const found = ptBr.find(v => v.name.toLowerCase().includes(name.toLowerCase()))
+    const found = voices.find(v => v.name.toLowerCase().includes(name.toLowerCase()))
     if (found) return found
   }
-  return ptBr.find(v => v.localService) || ptBr[0] || voices.find(v => /^pt/i.test(v.lang)) || null
+  return voices.find(v => v.localService) || voices[0] || null
 }
 
-function naturalize(text: string) {
-  let answer = text
+function normalizeContent(text: string) {
+  return text
     .replace(/\s+/g, ' ')
     .replace(/\bSST\b/gi, 'segurança do trabalho')
     .replace(/\bCNO\b/g, 'C N O')
@@ -60,21 +72,22 @@ function naturalize(text: string) {
     .replace(/\bART\b/g, 'A R T')
     .replace(/\bp\.p\.\b/gi, 'pontos percentuais')
     .replace(/;\s*/g, '. ')
-    .trim()
-
-  answer = answer
     .replace(/^Orçamento registrado:/i, 'Pelo que está registrado na obra, o orçamento é de')
     .replace(/^Pendências de regularização:/i, 'Para a regularização, ainda faltam:')
     .replace(/^Pontos de segurança do trabalho ainda pendentes no roteiro:/i, 'Na segurança do trabalho, ainda estão pendentes:')
     .replace(/^Próximas ações de arquitetura\/cliente:/i, 'Na arquitetura, os próximos pontos são:')
     .replace(/^A próxima ação obrigatória sugerida pelo roteiro é:/i, 'Pelo roteiro atual, o próximo passo é')
+    .trim()
+}
 
+function friendlyAnswer(text: string) {
+  const answer = normalizeContent(text)
   const name = firstName()
-  if (!greeted) {
-    greeted = true
-    return `Oi, ${name}. ${answer}`
-  }
-  return `Claro, ${name}. ${answer}`
+  const alreadyHasName = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(answer)
+  responseCount += 1
+  if (alreadyHasName) return answer
+  if (responseCount === 1) return `Oi, ${name}. Claro. ${answer}`
+  return `${name}, ${answer}`
 }
 
 function unlockSpeechOnUserGesture() {
@@ -116,13 +129,13 @@ function resumeConversation() {
   }, 650)
 }
 
-function speak(text: string, resumeAfter = true) {
+function speakPrepared(text: string, resumeAfter = true) {
   if (!text || !('speechSynthesis' in window)) {
     if (resumeAfter) resumeConversation()
     return
   }
 
-  const clean = naturalize(text)
+  const clean = text.replace(/\s+/g, ' ').trim()
   if (!clean || clean === lastSpoken) {
     if (resumeAfter) resumeConversation()
     return
@@ -134,10 +147,10 @@ function speak(text: string, resumeAfter = true) {
     window.speechSynthesis.resume()
     const utterance = new SpeechSynthesisUtterance(clean)
     utterance.lang = 'pt-BR'
-    utterance.rate = 0.91
+    utterance.rate = 0.90
     utterance.pitch = 1
     utterance.volume = 1
-    const voice = getBestPortugueseVoice()
+    const voice = selectedVoice()
     if (voice) utterance.voice = voice
 
     utterance.onstart = () => { speaking = true }
@@ -168,32 +181,91 @@ function stopSpeaking() {
   speaking = false
 }
 
+function updateOrbCopy() {
+  const { orb } = getVoiceParts()
+  if (!orb) return
+  const title = orb.querySelector('div > b') as HTMLElement | null
+  const subtitle = orb.querySelector('div > span') as HTMLElement | null
+  const name = firstName()
+  if (title) title.textContent = `Oi, ${name}. Pode falar comigo normalmente.`
+  if (subtitle) subtitle.textContent = 'Pergunte sobre a obra, registre o que aconteceu ou dê um comando. Eu respondo por voz.'
+}
+
+function populateVoiceSelect(select: HTMLSelectElement) {
+  const voices = portugueseVoices()
+  const current = localStorage.getItem(VOICE_KEY) || selectedVoice()?.voiceURI || ''
+  select.innerHTML = ''
+  if (!voices.length) {
+    const option = document.createElement('option')
+    option.value = ''
+    option.textContent = 'Voz padrão do aparelho'
+    select.appendChild(option)
+    select.disabled = true
+    return
+  }
+  select.disabled = false
+  voices.forEach(v => {
+    const option = document.createElement('option')
+    option.value = v.voiceURI
+    option.textContent = `${v.name}${v.localService ? ' • aparelho' : ''}`
+    option.selected = v.voiceURI === current
+    select.appendChild(option)
+  })
+}
+
 function ensureConversationControl() {
   const { agent, orb } = getVoiceParts()
-  if (!agent || !orb || agent.querySelector('.v4-voice-reply-toggle')) return
+  if (!agent || !orb) return
+  updateOrbCopy()
+  if (agent.querySelector('.v4-voice-reply-toggle')) return
 
   const wrap = document.createElement('div')
   wrap.className = 'v4-voice-reply-toggle'
-  const button = document.createElement('button')
-  button.type = 'button'
 
-  const render = () => {
+  const autoButton = document.createElement('button')
+  autoButton.type = 'button'
+  autoButton.className = 'v4-auto-conversation-button'
+
+  const renderAuto = () => {
     const on = autoEnabled()
-    button.className = on ? 'active' : ''
-    button.innerHTML = `${on ? '🟢' : '⚪'} <span>Conversa automática</span><strong>${on ? 'Ativa' : 'Pausada'}</strong><small>${on ? 'você fala e eu respondo por voz' : 'toque para reativar'}</small>`
+    autoButton.classList.toggle('active', on)
+    autoButton.innerHTML = `${on ? '🟢' : '⚪'} <span>Conversa automática</span><strong>${on ? 'Ativa' : 'Pausada'}</strong><small>${on ? 'você fala e eu respondo por voz' : 'toque para reativar'}</small>`
   }
 
-  button.addEventListener('click', () => {
+  autoButton.addEventListener('click', () => {
     const next = !autoEnabled()
     setAutoEnabled(next)
     sessionArmed = next
     if (!next) stopSpeaking()
     else unlockSpeechOnUserGesture()
-    render()
+    renderAuto()
   })
 
-  render()
-  wrap.appendChild(button)
+  const voiceBox = document.createElement('div')
+  voiceBox.className = 'v4-voice-picker'
+  const label = document.createElement('label')
+  label.textContent = 'Voz do agente'
+  const select = document.createElement('select')
+  populateVoiceSelect(select)
+  select.addEventListener('change', () => {
+    localStorage.setItem(VOICE_KEY, select.value)
+    unlockSpeechOnUserGesture()
+    const name = firstName()
+    setTimeout(() => speakPrepared(`Oi, ${name}. Esta é a voz que você escolheu para o Obra360.`, false), 80)
+  })
+  const test = document.createElement('button')
+  test.type = 'button'
+  test.className = 'v4-voice-test'
+  test.textContent = 'Ouvir'
+  test.addEventListener('click', () => {
+    unlockSpeechOnUserGesture()
+    const name = firstName()
+    setTimeout(() => speakPrepared(`Oi, ${name}. Tudo bem? Esta é a voz atual do seu copiloto de obra.`, false), 80)
+  })
+  voiceBox.append(label, select, test)
+
+  renderAuto()
+  wrap.append(autoButton, voiceBox)
   orb.insertAdjacentElement('afterend', wrap)
 }
 
@@ -226,13 +298,12 @@ function inspectAnswer() {
 
   lastAnswer = raw
   processing = false
-  const friendly = naturalize(raw)
+  const needsConfirmation = !!result.querySelector('.v4-primary')
+  const combined = needsConfirmation ? `${raw}. Se estiver correto, confirme a ação na tela.` : raw
+  const friendly = friendlyAnswer(combined)
   heading.textContent = friendly
   heading.dataset.voiceFriendly = '1'
-
-  const needsConfirmation = !!result.querySelector('.v4-primary')
-  if (needsConfirmation) speak(`${raw}. Se estiver correto, confirme a ação na tela.`, false)
-  else speak(raw, true)
+  speakPrepared(friendly, !needsConfirmation)
 }
 
 function speakMessageIfNeeded() {
@@ -240,7 +311,8 @@ function speakMessageIfNeeded() {
   const msg = document.querySelector('.v4-agent-message')?.textContent?.trim() || ''
   if (!msg) return
   processing = false
-  speak(msg, sessionArmed)
+  const friendly = friendlyAnswer(msg)
+  speakPrepared(friendly, sessionArmed)
 }
 
 function pollConversation() {
@@ -279,6 +351,8 @@ function boot() {
       try {
         window.speechSynthesis.getVoices()
         window.speechSynthesis.resume()
+        const select = document.querySelector('.v4-voice-picker select') as HTMLSelectElement | null
+        if (select) populateVoiceSelect(select)
       } catch {}
     }
     warm()
@@ -287,6 +361,7 @@ function boot() {
 
   const observer = new MutationObserver(() => {
     ensureConversationControl()
+    updateOrbCopy()
     wireMic()
     inspectAnswer()
     speakMessageIfNeeded()
