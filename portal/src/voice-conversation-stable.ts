@@ -1,4 +1,4 @@
-const SILENCE_MS = 1450
+const SILENCE_MS = 1250
 
 let sessionActive = false
 let programmatic = false
@@ -8,7 +8,15 @@ let monitor: number | null = null
 let lastTranscript = ''
 let lastTranscriptChange = 0
 let lastAnswer = ''
+let lastMessage = ''
 let firstReply = true
+let turn = 0
+let currentUtterance = ''
+let awaitingVoiceConfirmation = false
+let pendingConfirmButton: HTMLButtonElement | null = null
+let naturalVoiceAvailable: boolean | null = null
+let audioContext: AudioContext | null = null
+let audioSource: AudioBufferSourceNode | null = null
 
 function getParts() {
   const agent = document.querySelector('.v4-agent-work') as HTMLElement | null
@@ -17,9 +25,11 @@ function getParts() {
   const textarea = agent?.querySelector('.v4-transcript textarea') as HTMLTextAreaElement | null
   const buttons = Array.from(agent?.querySelectorAll('.v4-agent-actions button') || []) as HTMLButtonElement[]
   const understand = buttons.find(b => /entender/i.test(b.textContent || '')) || null
+  const clear = buttons.find(b => /limpar/i.test(b.textContent || '')) || null
   const result = agent?.querySelector('.v4-agent-result') as HTMLElement | null
   const message = agent?.querySelector('.v4-agent-message') as HTMLElement | null
-  return { agent, orb, mic, textarea, understand, result, message }
+  const confirm = result?.querySelector('.v4-primary') as HTMLButtonElement | null
+  return { agent, orb, mic, textarea, understand, clear, result, message, confirm }
 }
 
 function firstName() {
@@ -49,11 +59,33 @@ function humanAnswer(raw: string) {
   const name = firstName()
   const alreadyPersonal = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(answer)
   if (alreadyPersonal) return answer
+  turn += 1
   if (firstReply) {
     firstReply = false
     return `Oi, ${name}. ${answer}`
   }
-  return `${name}, ${answer}`
+  const lead = turn % 3 === 0 ? 'Entendi' : turn % 2 === 0 ? 'Certo' : 'Claro'
+  return `${lead}, ${name}. ${answer}`
+}
+
+function actionMessage(raw: string) {
+  const name = firstName()
+  const text = String(raw || '').trim()
+  const count = Number(text.match(/(\d+)\s+altera/i)?.[1] || 0)
+  if (/comando executado/i.test(text)) return count === 1 ? `Pronto, ${name}. Atualizei esse item na obra.` : `Pronto, ${name}. Atualizei ${count || 'os'} itens na obra.`
+  if (/registro salvo/i.test(text)) return `Pronto, ${name}. Registrei isso no histórico da obra.`
+  if (/análise confirmada/i.test(text)) return `Pronto, ${name}. A análise foi confirmada.`
+  return humanAnswer(text)
+}
+
+function greetingReply(text: string) {
+  const low = text.toLowerCase().trim().replace(/[!.?]+$/g, '')
+  const name = firstName()
+  if (/^(oi|olá|ola|e aí|e ai)$/.test(low)) return `Oi, ${name}. Pode falar. O que você quer saber ou registrar sobre a obra?`
+  if (/^bom dia$/.test(low)) return `Bom dia, ${name}. Pode falar comigo normalmente. O que você precisa da obra agora?`
+  if (/^boa tarde$/.test(low)) return `Boa tarde, ${name}. Pode falar. O que você quer verificar na obra?`
+  if (/^boa noite$/.test(low)) return `Boa noite, ${name}. Pode falar. O que você quer saber ou registrar sobre a obra?`
+  return ''
 }
 
 function portugueseVoices() {
@@ -74,20 +106,33 @@ function voiceScore(v: SpeechSynthesisVoice) {
   return score
 }
 
-function bestVoice() {
+function bestBrowserVoice() {
   return [...portugueseVoices()].sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null
 }
 
-function unlockSpeech() {
-  if (!('speechSynthesis' in window)) return
+function unlockAudio() {
   try {
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.resume()
-    const u = new SpeechSynthesisUtterance('\u200B')
-    u.lang = 'pt-BR'
-    u.volume = 0.01
-    window.speechSynthesis.speak(u)
+    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined
+    if (Ctx && !audioContext) audioContext = new Ctx()
+    audioContext?.resume().catch(() => {})
   } catch {}
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.resume()
+      const u = new SpeechSynthesisUtterance('\u200B')
+      u.lang = 'pt-BR'
+      u.volume = 0.01
+      window.speechSynthesis.speak(u)
+    } catch {}
+  }
+}
+
+function stopAudio() {
+  try { audioSource?.stop() } catch {}
+  audioSource = null
+  try { window.speechSynthesis?.cancel() } catch {}
+  speaking = false
 }
 
 function setTextarea(value: string) {
@@ -114,94 +159,224 @@ function clickProgrammatically(btn: HTMLButtonElement | null) {
   if (!btn || btn.disabled) return false
   programmatic = true
   btn.click()
-  window.setTimeout(() => { programmatic = false }, 120)
+  window.setTimeout(() => { programmatic = false }, 140)
   return true
 }
 
 function stopSession() {
   sessionActive = false
   processing = false
-  speaking = false
-  try { window.speechSynthesis?.cancel() } catch {}
+  awaitingVoiceConfirmation = false
+  pendingConfirmButton = null
+  stopAudio()
   if (monitor !== null) {
     window.clearInterval(monitor)
     monitor = null
   }
 }
 
-function startListening() {
+function startListening(delay = 380) {
   if (!sessionActive || speaking || processing) return
   clearTranscript()
   window.setTimeout(() => {
     const { mic, orb } = getParts()
-    if (!sessionActive || !mic || !orb || orb.classList.contains('listening')) return
+    if (!sessionActive || speaking || processing || !mic || !orb || orb.classList.contains('listening')) return
     clickProgrammatically(mic)
-  }, 450)
+  }, delay)
 }
 
-function speak(text: string, resume = true) {
-  if (!text) {
-    processing = false
-    if (resume) startListening()
-    return
-  }
-  if (!('speechSynthesis' in window)) {
-    processing = false
-    if (resume) startListening()
-    return
-  }
+function finishSpeech(resume: boolean) {
+  speaking = false
+  processing = false
+  audioSource = null
+  if (resume) startListening()
+}
+
+function speakWithBrowser(text: string, resume: boolean) {
+  if (!('speechSynthesis' in window)) return finishSpeech(resume)
   try {
     window.speechSynthesis.cancel()
     window.speechSynthesis.resume()
     const u = new SpeechSynthesisUtterance(text)
     u.lang = 'pt-BR'
-    u.rate = 0.94
-    u.pitch = 1.02
+    u.rate = 0.98
+    u.pitch = 1
     u.volume = 1
-    const voice = bestVoice()
+    const voice = bestBrowserVoice()
     if (voice) u.voice = voice
-    u.onstart = () => { speaking = true }
-    u.onend = () => {
-      speaking = false
-      processing = false
-      if (resume) startListening()
-    }
-    u.onerror = () => {
-      speaking = false
-      processing = false
-      if (resume) startListening()
-    }
+    u.onend = () => finishSpeech(resume)
+    u.onerror = () => finishSpeech(resume)
     window.speechSynthesis.speak(u)
   } catch {
-    speaking = false
+    finishSpeech(resume)
+  }
+}
+
+async function speakNatural(text: string, resume: boolean) {
+  speaking = true
+  stopAudio()
+  speaking = true
+  try {
+    if (naturalVoiceAvailable !== false) {
+      const controller = new AbortController()
+      const timer = window.setTimeout(() => controller.abort(), 12000)
+      const r = await fetch('/api/voice/speak', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: 'marin' }),
+        signal: controller.signal,
+      })
+      window.clearTimeout(timer)
+      if (r.ok) {
+        naturalVoiceAvailable = true
+        const bytes = await r.arrayBuffer()
+        if (audioContext) {
+          await audioContext.resume().catch(() => {})
+          const buffer = await audioContext.decodeAudioData(bytes.slice(0))
+          const source = audioContext.createBufferSource()
+          audioSource = source
+          source.buffer = buffer
+          source.connect(audioContext.destination)
+          source.onended = () => finishSpeech(resume)
+          source.start(0)
+          return
+        }
+      } else if (r.status === 503) {
+        naturalVoiceAvailable = false
+      }
+    }
+  } catch {}
+  speakWithBrowser(text, resume)
+}
+
+function speak(text: string, resume = true) {
+  const clean = normalize(text)
+  if (!clean) {
     processing = false
     if (resume) startListening()
+    return
   }
+  void speakNatural(clean, resume)
+}
+
+function isYes(text: string) {
+  return /^(sim|pode|pode sim|confirmo|confirma|confirmar|isso|isso mesmo|correto|certo|ok|okay|pode fazer|faz|faça)$/i.test(text.trim())
+}
+
+function isNo(text: string) {
+  return /^(não|nao|não pode|nao pode|cancela|cancelar|deixa|deixa pra lá|deixa para la|esquece)$/i.test(text.trim())
+}
+
+function explicitCommand(text: string) {
+  return /\b(marque|marca|marcar|adicione|adiciona|crie|cria|registre|registra|reabra|reabre|coloque|coloca|inclua|inclui)\b/i.test(text)
+}
+
+function sensitiveCommand(text: string) {
+  return /\b(seguran[cç]a|sst|epi|epc|pgr|nr\s*-?\s*(18|35)|estrutura|funda[cç][aã]o|concret|armadura|laje|viga|pilar|alvar[aá]|habite|licen[cç]a|prefeitura|art\b|rrt\b|pagamento|medi[cç][aã]o|or[cç]amento|financeir|custo|aprova[cç][aã]o t[eé]cnica)\b/i.test(text)
+}
+
+function shouldAutoApply(text: string) {
+  return explicitCommand(text) && !sensitiveCommand(text)
+}
+
+function cancelPendingAction() {
+  const { clear } = getParts()
+  clickProgrammatically(clear)
+  awaitingVoiceConfirmation = false
+  pendingConfirmButton = null
+}
+
+function handlePendingVoiceConfirmation(text: string) {
+  const { mic, orb } = getParts()
+  if (orb?.classList.contains('listening')) clickProgrammatically(mic)
+  clearTranscript()
+  if (isYes(text)) {
+    const button = pendingConfirmButton
+    awaitingVoiceConfirmation = false
+    pendingConfirmButton = null
+    if (button && !button.disabled) {
+      processing = true
+      clickProgrammatically(button)
+    } else {
+      speak(`Certo, ${firstName()}. Essa ação não está mais disponível. Pode me dizer novamente o que você quer fazer?`, true)
+    }
+    return true
+  }
+  if (isNo(text)) {
+    cancelPendingAction()
+    speak(`Tudo bem, ${firstName()}. Não alterei nada. Pode continuar.`, true)
+    return true
+  }
+  speak(`${firstName()}, para essa alteração eu só preciso de uma confirmação. Diga sim para confirmar ou não para cancelar.`, true)
+  return true
 }
 
 function inspectResponse() {
   if (!processing) return false
-  const { result, message } = getParts()
-  const heading = result?.querySelector('h3') as HTMLElement | null
-  const raw = heading?.textContent?.trim() || ''
-  if (raw && raw !== lastAnswer) {
-    lastAnswer = raw
-    const friendly = humanAnswer(raw)
-    const needsConfirmation = !!result?.querySelector('.v4-primary')
-    if (heading && heading.textContent !== friendly) heading.textContent = friendly
+  const { result, message, confirm } = getParts()
+  const msg = message?.textContent?.trim() || ''
+  if (msg && msg !== lastMessage) {
+    lastMessage = msg
     clearTranscript()
-    speak(needsConfirmation ? `${friendly}. Se estiver correto, confirme a ação na tela.` : friendly, !needsConfirmation)
-    if (needsConfirmation) sessionActive = false
+    speak(actionMessage(msg), true)
     return true
   }
 
-  const msg = message?.textContent?.trim() || ''
-  if (msg) {
-    clearTranscript()
-    speak(humanAnswer(msg), true)
+  const heading = result?.querySelector('h3') as HTMLElement | null
+  const raw = heading?.textContent?.trim() || ''
+  if (!raw || raw === lastAnswer) return false
+
+  lastAnswer = raw
+  clearTranscript()
+  const friendly = humanAnswer(raw)
+  if (heading && heading.textContent !== friendly) heading.textContent = friendly
+
+  if (confirm) {
+    if (shouldAutoApply(currentUtterance)) {
+      processing = true
+      clickProgrammatically(confirm)
+      return true
+    }
+    pendingConfirmButton = confirm
+    awaitingVoiceConfirmation = true
+    processing = false
+    speak(`${friendly}. Quer que eu confirme essa alteração?`, true)
     return true
   }
-  return false
+
+  speak(friendly, true)
+  return true
+}
+
+function processStableUtterance(value: string) {
+  const { mic, orb, understand } = getParts()
+  currentUtterance = value.trim()
+  if (orb?.classList.contains('listening')) clickProgrammatically(mic)
+
+  if (awaitingVoiceConfirmation) {
+    handlePendingVoiceConfirmation(currentUtterance)
+    return
+  }
+
+  const greeting = greetingReply(currentUtterance)
+  if (greeting) {
+    clearTranscript()
+    speak(greeting, true)
+    return
+  }
+
+  processing = true
+  window.setTimeout(() => {
+    const current = getParts()
+    if (!current.understand || current.understand.disabled) {
+      processing = false
+      speak(`Luan, não consegui processar essa fala. Pode repetir?`, true)
+      return
+    }
+    lastMessage = current.message?.textContent?.trim() || ''
+    clickProgrammatically(current.understand)
+  }, 260)
 }
 
 function tick() {
@@ -225,24 +400,15 @@ function tick() {
     lastTranscriptChange = Date.now()
     return
   }
-  if (value.length < 3) return
+  if (value.length < 2) return
   if (Date.now() - lastTranscriptChange < SILENCE_MS) return
 
-  processing = true
-  clickProgrammatically(mic)
-  window.setTimeout(() => {
-    const { understand: currentUnderstand } = getParts()
-    if (!currentUnderstand || currentUnderstand.disabled) {
-      processing = false
-      return
-    }
-    clickProgrammatically(currentUnderstand)
-  }, 300)
+  processStableUtterance(value)
 }
 
 function ensureMonitor() {
   if (monitor !== null) return
-  monitor = window.setInterval(tick, 280)
+  monitor = window.setInterval(tick, 300)
 }
 
 document.addEventListener('click', (event) => {
@@ -259,11 +425,16 @@ document.addEventListener('click', (event) => {
   sessionActive = true
   processing = false
   speaking = false
+  awaitingVoiceConfirmation = false
+  pendingConfirmButton = null
   firstReply = true
+  turn = 0
   lastAnswer = ''
+  lastMessage = ''
   lastTranscript = ''
+  currentUtterance = ''
   lastTranscriptChange = Date.now()
-  unlockSpeech()
+  unlockAudio()
   ensureMonitor()
 }, true)
 
