@@ -1,0 +1,149 @@
+/* Obra360 Copilot — Visão Geral v5
+   Hero fotográfico + home executiva sem repetir a página de Etapas. */
+
+/* Foto real de edifício em construção como fallback visual do projeto.
+   Quando a obra já possui uma foto própria, o estilo inline do projeto continua tendo prioridade. */
+.v4-hero:not(.has-photo){
+  background-image:
+    linear-gradient(90deg,rgba(7,28,22,.93) 0%,rgba(10,43,33,.84) 43%,rgba(10,35,28,.43) 72%,rgba(10,28,22,.28) 100%),
+    linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.28)),
+    url('https://images.unsplash.com/photo-1780145769345-de98a1a6a982?auto=format&fit=crop&fm=jpg&q=82&w=2200');
+  background-size:cover;
+  background-position:center 48%;
+  background-repeat:no-repeat;
+}
+
+.v4-hero{
+  min-height:365px;
+  padding:38px 40px;
+  border-radius:26px;
+  box-shadow:0 28px 80px rgba(12,43,34,.18);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.v4-hero:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 45%,rgba(0,0,0,.08));
+}
+
+.v4-hero:after{
+  opacity:.52;
+}
+
+.v4-hero-copy h1{
+  max-width:820px;
+  text-shadow:0 3px 18px rgba(0,0,0,.18);
+}
+
+.v4-hero-copy p{
+  color:#e1ebe6;
+  font-size:13px;
+  font-weight:600;
+}
+
+.v4-hero-actions button{
+  min-height:42px;
+  padding:11px 14px;
+  border-radius:11px;
+  box-shadow:0 8px 24px rgba(0,0,0,.10);
+}
+
+.v4-progress-orb{
+  width:126px;
+  height:126px;
+  backdrop-filter:blur(4px);
+  box-shadow:0 12px 34px rgba(0,0,0,.14);
+}
+
+/* A jornada completa pertence à guia Etapas. Não repetir o mapa na home. */
+.v4-next-action + .v4-panel{
+  display:none !important;
+}
+
+/* Home executiva: cards mais leves e destaque maior para informação útil. */
+.v4-kpis{
+  margin:14px 0 12px;
+  gap:12px;
+}
+
+.v4-metric{
+  min-height:86px;
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 10px 30px rgba(18,59,48,.035);
+}
+
+.v4-next-action{
+  margin-bottom:14px;
+  border-radius:18px;
+  padding:22px 24px;
+  box-shadow:0 12px 36px rgba(18,59,48,.045);
+}
+
+.v4-dashboard-split{
+  margin-top:0;
+  gap:14px;
+}
+
+.v4-dashboard-split .v4-panel{
+  min-height:330px;
+  border-radius:20px;
+  padding:20px;
+}
+
+.v4-photo-preview{
+  gap:9px;
+}
+
+.v4-photo-preview figure{
+  border-radius:13px;
+  overflow:hidden;
+  background:#e9eeeb;
+}
+
+.v4-photo-preview figure.large{
+  min-height:250px;
+}
+
+.v4-photo-preview img{
+  transition:transform .35s ease;
+}
+
+.v4-photo-preview figure:hover img{
+  transform:scale(1.025);
+}
+
+.v4-priority-list button{
+  border-radius:12px;
+  transition:background .18s ease,transform .18s ease;
+}
+
+.v4-priority-list button:hover{
+  background:#f7f9f7;
+  transform:translateX(2px);
+}
+
+@media(max-width:900px){
+  .v4-hero{
+    min-height:330px;
+    padding:30px 26px;
+    background-position:center center;
+  }
+  .v4-dashboard-split .v4-panel{min-height:auto}
+}
+
+@media(max-width:620px){
+  .v4-hero{
+    min-height:410px;
+    padding:25px 22px;
+    background-position:58% center;
+  }
+  .v4-hero-copy h1{font-size:42px}
+  .v4-hero-actions{flex-wrap:wrap}
+  .v4-hero-actions button{flex:1;min-width:145px}
+  .v4-progress-orb{width:96px;height:96px}
+  .v4-kpis{grid-template-columns:1fr 1fr}
+}
