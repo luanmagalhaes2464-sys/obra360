@@ -111,15 +111,29 @@ function clickProgrammatically(button: HTMLButtonElement | null) {
   return true
 }
 
+function clearTranscriptOnly() {
+  const { textarea } = getVoiceParts()
+  if (!textarea) return
+  try {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+    if (setter) setter.call(textarea, '')
+    else textarea.value = ''
+    textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    textarea.dispatchEvent(new Event('change', { bubbles: true }))
+  } catch {
+    textarea.value = ''
+  }
+  lastTranscript = ''
+  lastTranscriptChange = Date.now()
+}
+
 function resumeConversation() {
   if (!sessionArmed || !autoEnabled()) return
-  const { mic, clear, orb } = getVoiceParts()
+  const { mic, orb } = getVoiceParts()
   if (!mic || !orb || orb.classList.contains('listening')) return
   if (document.querySelector('.v4-agent-result .v4-primary')) return
 
-  clickProgrammatically(clear)
-  lastTranscript = ''
-  lastTranscriptChange = Date.now()
+  clearTranscriptOnly()
 
   setTimeout(() => {
     const current = getVoiceParts()
@@ -281,8 +295,7 @@ function wireMic() {
     sessionArmed = true
     setAutoEnabled(true)
     unlockSpeechOnUserGesture()
-    lastTranscript = ''
-    lastTranscriptChange = Date.now()
+    clearTranscriptOnly()
     processing = false
     setTimeout(() => ensureConversationControl(), 0)
   }, { capture: true })
@@ -298,6 +311,7 @@ function inspectAnswer() {
 
   lastAnswer = raw
   processing = false
+  clearTranscriptOnly()
   const needsConfirmation = !!result.querySelector('.v4-primary')
   const combined = needsConfirmation ? `${raw}. Se estiver correto, confirme a ação na tela.` : raw
   const friendly = friendlyAnswer(combined)
@@ -311,6 +325,7 @@ function speakMessageIfNeeded() {
   const msg = document.querySelector('.v4-agent-message')?.textContent?.trim() || ''
   if (!msg) return
   processing = false
+  clearTranscriptOnly()
   const friendly = friendlyAnswer(msg)
   speakPrepared(friendly, sessionArmed)
 }
