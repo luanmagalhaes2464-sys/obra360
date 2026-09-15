@@ -1,7 +1,7 @@
 const AUTO_KEY = 'obra360_voice_conversation_auto'
 const VOICE_KEY = 'obra360_voice_selected'
-const SILENCE_MS = 1450
-let lastSpoken = ''
+const SILENCE_MS = 1500
+
 let sessionArmed = false
 let speaking = false
 let processing = false
@@ -9,7 +9,9 @@ let programmaticClick = false
 let lastTranscript = ''
 let lastTranscriptChange = 0
 let lastAnswer = ''
+let lastSpoken = ''
 let responseCount = 0
+let controlsMounted = false
 
 function autoEnabled() {
   const saved = localStorage.getItem(AUTO_KEY)
@@ -21,50 +23,57 @@ function setAutoEnabled(value: boolean) {
 }
 
 function firstName() {
-  const name = document.querySelector('.v4-side-user b')?.textContent?.trim() || ''
-  return name.split(/\s+/).filter(Boolean)[0] || 'Olá'
+  const candidates = [
+    document.querySelector('.v4-side-user b')?.textContent,
+    document.querySelector('.v4-side-user strong')?.textContent,
+    document.querySelector('[data-user-name]')?.textContent,
+  ]
+  const name = candidates.find(Boolean)?.trim() || ''
+  return name.split(/\s+/).filter(Boolean)[0] || 'Luan'
 }
 
-function getVoiceParts() {
+function parts() {
   const agent = document.querySelector('.v4-agent-work') as HTMLElement | null
   const orb = agent?.querySelector('.v4-voice-orb') as HTMLElement | null
   const mic = orb?.querySelector('button') as HTMLButtonElement | null
   const textarea = agent?.querySelector('.v4-transcript textarea') as HTMLTextAreaElement | null
-  const actions = agent?.querySelector('.v4-agent-actions') as HTMLElement | null
-  const buttons = Array.from(actions?.querySelectorAll('button') || []) as HTMLButtonElement[]
-  const understand = buttons.find(b => /entender/i.test(b.textContent || '')) || null
-  const clear = buttons.find(b => /limpar/i.test(b.textContent || '')) || null
+  const actionButtons = Array.from(agent?.querySelectorAll('.v4-agent-actions button') || []) as HTMLButtonElement[]
+  const understand = actionButtons.find(b => /entender/i.test(b.textContent || '')) || null
   const result = agent?.querySelector('.v4-agent-result') as HTMLElement | null
-  return { agent, orb, mic, textarea, understand, clear, result }
+  return { agent, orb, mic, textarea, understand, result }
 }
 
 function portugueseVoices() {
-  const voices = window.speechSynthesis?.getVoices?.() || []
-  const ptBr = voices.filter(v => /^pt(-|_)?BR/i.test(v.lang) || /^pt-BR$/i.test(v.lang))
-  const pt = voices.filter(v => /^pt/i.test(v.lang))
-  return ptBr.length ? ptBr : pt
+  if (!('speechSynthesis' in window)) return [] as SpeechSynthesisVoice[]
+  const voices = window.speechSynthesis.getVoices() || []
+  const br = voices.filter(v => /^pt(-|_)?BR$/i.test(v.lang))
+  return br.length ? br : voices.filter(v => /^pt/i.test(v.lang))
+}
+
+function scoreVoice(v: SpeechSynthesisVoice) {
+  const n = v.name.toLowerCase()
+  let score = 0
+  if (/natural|neural|premium|enhanced/.test(n)) score += 100
+  if (/microsoft/.test(n)) score += 45
+  if (/google/.test(n)) score += 35
+  if (/luciana|francisca|joana|camila|vit[oó]ria|maria|flo/.test(n)) score += 25
+  if (/pt-br/i.test(v.lang)) score += 15
+  if (!v.localService) score += 8
+  return score
 }
 
 function selectedVoice() {
   const voices = portugueseVoices()
   const saved = localStorage.getItem(VOICE_KEY)
   if (saved) {
-    const found = voices.find(v => v.voiceURI === saved || v.name === saved)
-    if (found) return found
+    const exact = voices.find(v => v.voiceURI === saved || v.name === saved)
+    if (exact) return exact
   }
-  const preferred = [
-    'Luciana', 'Francisca', 'Flo', 'Joana', 'Camila', 'Vitória', 'Vitoria', 'Maria',
-    'Google português do Brasil', 'Portuguese (Brazil)'
-  ]
-  for (const name of preferred) {
-    const found = voices.find(v => v.name.toLowerCase().includes(name.toLowerCase()))
-    if (found) return found
-  }
-  return voices.find(v => v.localService) || voices[0] || null
+  return [...voices].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] || null
 }
 
 function normalizeContent(text: string) {
-  return text
+  return String(text || '')
     .replace(/\s+/g, ' ')
     .replace(/\bSST\b/gi, 'segurança do trabalho')
     .replace(/\bCNO\b/g, 'C N O')
@@ -83,111 +92,11 @@ function normalizeContent(text: string) {
 function friendlyAnswer(text: string) {
   const answer = normalizeContent(text)
   const name = firstName()
-  const alreadyHasName = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(answer)
+  if (!answer) return ''
   responseCount += 1
-  if (alreadyHasName) return answer
-  if (responseCount === 1) return `Oi, ${name}. Claro. ${answer}`
-  return `${name}, ${answer}`
-}
-
-function unlockSpeechOnUserGesture() {
-  if (!('speechSynthesis' in window)) return
-  try {
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.resume()
-    const unlock = new SpeechSynthesisUtterance('\u200B')
-    unlock.lang = 'pt-BR'
-    unlock.volume = 0.01
-    unlock.rate = 1
-    window.speechSynthesis.speak(unlock)
-  } catch {}
-}
-
-function clickProgrammatically(button: HTMLButtonElement | null) {
-  if (!button || button.disabled) return false
-  programmaticClick = true
-  button.click()
-  setTimeout(() => { programmaticClick = false }, 100)
-  return true
-}
-
-function clearTranscriptOnly() {
-  const { textarea } = getVoiceParts()
-  if (!textarea) return
-  try {
-    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
-    if (setter) setter.call(textarea, '')
-    else textarea.value = ''
-    textarea.dispatchEvent(new Event('input', { bubbles: true }))
-    textarea.dispatchEvent(new Event('change', { bubbles: true }))
-  } catch {
-    textarea.value = ''
-  }
-  lastTranscript = ''
-  lastTranscriptChange = Date.now()
-}
-
-function resumeConversation() {
-  if (!sessionArmed || !autoEnabled()) return
-  const { mic, orb } = getVoiceParts()
-  if (!mic || !orb || orb.classList.contains('listening')) return
-  if (document.querySelector('.v4-agent-result .v4-primary')) return
-
-  clearTranscriptOnly()
-
-  setTimeout(() => {
-    const current = getVoiceParts()
-    if (sessionArmed && autoEnabled() && current.mic && current.orb && !current.orb.classList.contains('listening')) {
-      clickProgrammatically(current.mic)
-    }
-  }, 650)
-}
-
-function speakPrepared(text: string, resumeAfter = true) {
-  if (!text || !('speechSynthesis' in window)) {
-    if (resumeAfter) resumeConversation()
-    return
-  }
-
-  const clean = text.replace(/\s+/g, ' ').trim()
-  if (!clean || clean === lastSpoken) {
-    if (resumeAfter) resumeConversation()
-    return
-  }
-  lastSpoken = clean
-
-  try {
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.resume()
-    const utterance = new SpeechSynthesisUtterance(clean)
-    utterance.lang = 'pt-BR'
-    utterance.rate = 0.90
-    utterance.pitch = 1
-    utterance.volume = 1
-    const voice = selectedVoice()
-    if (voice) utterance.voice = voice
-
-    utterance.onstart = () => { speaking = true }
-    utterance.onend = () => {
-      speaking = false
-      processing = false
-      if (resumeAfter) setTimeout(resumeConversation, 450)
-    }
-    utterance.onerror = () => {
-      speaking = false
-      processing = false
-      if (resumeAfter) setTimeout(resumeConversation, 450)
-    }
-
-    window.speechSynthesis.speak(utterance)
-    setTimeout(() => {
-      try { window.speechSynthesis.resume() } catch {}
-    }, 120)
-  } catch {
-    speaking = false
-    processing = false
-    if (resumeAfter) resumeConversation()
-  }
+  const nameRegex = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+  if (nameRegex.test(answer)) return answer
+  return responseCount === 1 ? `Oi, ${name}. Claro. ${answer}` : `${name}, ${answer}`
 }
 
 function stopSpeaking() {
@@ -195,197 +104,268 @@ function stopSpeaking() {
   speaking = false
 }
 
+function unlockSpeech() {
+  if (!('speechSynthesis' in window)) return
+  try {
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.resume()
+    const u = new SpeechSynthesisUtterance('\u200B')
+    u.lang = 'pt-BR'
+    u.volume = 0.01
+    window.speechSynthesis.speak(u)
+  } catch {}
+}
+
+function setReactTextareaValue(el: HTMLTextAreaElement, value: string) {
+  try {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+    if (setter) setter.call(el, value)
+    else el.value = value
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    el.dispatchEvent(new Event('change', { bubbles: true }))
+  } catch {
+    el.value = value
+  }
+}
+
+function clearTranscript() {
+  const { textarea } = parts()
+  if (textarea && textarea.value) setReactTextareaValue(textarea, '')
+  lastTranscript = ''
+  lastTranscriptChange = Date.now()
+}
+
+function clickProgrammatically(btn: HTMLButtonElement | null) {
+  if (!btn || btn.disabled) return false
+  programmaticClick = true
+  btn.click()
+  window.setTimeout(() => { programmaticClick = false }, 120)
+  return true
+}
+
+function speak(text: string, resumeAfter = true) {
+  if (!text || !('speechSynthesis' in window)) {
+    if (resumeAfter) resumeConversation()
+    return
+  }
+  const clean = text.replace(/\s+/g, ' ').trim()
+  if (!clean || clean === lastSpoken) {
+    if (resumeAfter) resumeConversation()
+    return
+  }
+  lastSpoken = clean
+  stopSpeaking()
+
+  try {
+    const u = new SpeechSynthesisUtterance(clean)
+    u.lang = 'pt-BR'
+    u.rate = 0.94
+    u.pitch = 1.02
+    u.volume = 1
+    const voice = selectedVoice()
+    if (voice) u.voice = voice
+    u.onstart = () => { speaking = true }
+    u.onend = () => {
+      speaking = false
+      processing = false
+      if (resumeAfter) window.setTimeout(resumeConversation, 450)
+    }
+    u.onerror = () => {
+      speaking = false
+      processing = false
+      if (resumeAfter) window.setTimeout(resumeConversation, 450)
+    }
+    window.speechSynthesis.speak(u)
+  } catch {
+    speaking = false
+    processing = false
+  }
+}
+
+function resumeConversation() {
+  if (!sessionArmed || !autoEnabled() || speaking || processing) return
+  const { mic, orb } = parts()
+  if (!mic || !orb || orb.classList.contains('listening')) return
+  if (document.querySelector('.v4-agent-result .v4-primary')) return
+  clearTranscript()
+  window.setTimeout(() => {
+    const p = parts()
+    if (sessionArmed && autoEnabled() && p.mic && p.orb && !p.orb.classList.contains('listening')) {
+      clickProgrammatically(p.mic)
+    }
+  }, 500)
+}
+
 function updateOrbCopy() {
-  const { orb } = getVoiceParts()
+  const { orb } = parts()
   if (!orb) return
   const title = orb.querySelector('div > b') as HTMLElement | null
   const subtitle = orb.querySelector('div > span') as HTMLElement | null
-  const name = firstName()
-  if (title) title.textContent = `Oi, ${name}. Pode falar comigo normalmente.`
-  if (subtitle) subtitle.textContent = 'Pergunte sobre a obra, registre o que aconteceu ou dê um comando. Eu respondo por voz.'
+  const wantedTitle = `Oi, ${firstName()}. Pode falar comigo normalmente.`
+  const wantedSubtitle = 'Pergunte sobre a obra, registre o que aconteceu ou dê um comando. Eu respondo por voz.'
+  if (title && title.textContent !== wantedTitle) title.textContent = wantedTitle
+  if (subtitle && subtitle.textContent !== wantedSubtitle) subtitle.textContent = wantedSubtitle
 }
 
-function populateVoiceSelect(select: HTMLSelectElement) {
+function fillVoiceSelect(select: HTMLSelectElement) {
   const voices = portugueseVoices()
   const current = localStorage.getItem(VOICE_KEY) || selectedVoice()?.voiceURI || ''
+  const signature = voices.map(v => `${v.voiceURI}:${v.name}`).join('|')
+  if (select.dataset.signature === signature) return
+  select.dataset.signature = signature
   select.innerHTML = ''
   if (!voices.length) {
-    const option = document.createElement('option')
-    option.value = ''
-    option.textContent = 'Voz padrão do aparelho'
-    select.appendChild(option)
+    const o = document.createElement('option')
+    o.textContent = 'Voz padrão do aparelho'
+    select.appendChild(o)
     select.disabled = true
     return
   }
   select.disabled = false
-  voices.forEach(v => {
-    const option = document.createElement('option')
-    option.value = v.voiceURI
-    option.textContent = `${v.name}${v.localService ? ' • aparelho' : ''}`
-    option.selected = v.voiceURI === current
-    select.appendChild(option)
+  ;[...voices].sort((a,b)=>scoreVoice(b)-scoreVoice(a)).forEach(v => {
+    const o = document.createElement('option')
+    o.value = v.voiceURI
+    const natural = /natural|neural|premium|enhanced/i.test(v.name) ? ' • natural' : ''
+    o.textContent = `${v.name}${natural}`
+    o.selected = v.voiceURI === current
+    select.appendChild(o)
   })
 }
 
-function ensureConversationControl() {
-  const { agent, orb } = getVoiceParts()
-  if (!agent || !orb) return
+function mountControls() {
+  const { agent, orb } = parts()
+  if (!agent || !orb) {
+    controlsMounted = false
+    return
+  }
   updateOrbCopy()
-  if (agent.querySelector('.v4-voice-reply-toggle')) return
+  if (agent.querySelector('.v4-voice-reply-toggle')) {
+    controlsMounted = true
+    return
+  }
 
   const wrap = document.createElement('div')
   wrap.className = 'v4-voice-reply-toggle'
 
-  const autoButton = document.createElement('button')
-  autoButton.type = 'button'
-  autoButton.className = 'v4-auto-conversation-button'
-
+  const auto = document.createElement('button')
+  auto.type = 'button'
+  auto.className = 'v4-auto-conversation-button'
   const renderAuto = () => {
     const on = autoEnabled()
-    autoButton.classList.toggle('active', on)
-    autoButton.innerHTML = `${on ? '🟢' : '⚪'} <span>Conversa automática</span><strong>${on ? 'Ativa' : 'Pausada'}</strong><small>${on ? 'você fala e eu respondo por voz' : 'toque para reativar'}</small>`
+    auto.classList.toggle('active', on)
+    auto.innerHTML = `${on ? '🟢' : '⚪'} <span>Conversa automática</span><strong>${on ? 'Ativa' : 'Pausada'}</strong><small>${on ? 'você fala e eu respondo por voz' : 'toque para reativar'}</small>`
   }
-
-  autoButton.addEventListener('click', () => {
+  renderAuto()
+  auto.onclick = () => {
     const next = !autoEnabled()
     setAutoEnabled(next)
     sessionArmed = next
-    if (!next) stopSpeaking()
-    else unlockSpeechOnUserGesture()
+    if (next) unlockSpeech(); else stopSpeaking()
     renderAuto()
-  })
+  }
 
-  const voiceBox = document.createElement('div')
-  voiceBox.className = 'v4-voice-picker'
+  const picker = document.createElement('div')
+  picker.className = 'v4-voice-picker'
   const label = document.createElement('label')
   label.textContent = 'Voz do agente'
   const select = document.createElement('select')
-  populateVoiceSelect(select)
-  select.addEventListener('change', () => {
+  fillVoiceSelect(select)
+  select.onchange = () => {
     localStorage.setItem(VOICE_KEY, select.value)
-    unlockSpeechOnUserGesture()
-    const name = firstName()
-    setTimeout(() => speakPrepared(`Oi, ${name}. Esta é a voz que você escolheu para o Obra360.`, false), 80)
-  })
+    unlockSpeech()
+    window.setTimeout(() => speak(`Oi, ${firstName()}. Esta é a voz selecionada.`, false), 80)
+  }
   const test = document.createElement('button')
   test.type = 'button'
   test.className = 'v4-voice-test'
   test.textContent = 'Ouvir'
-  test.addEventListener('click', () => {
-    unlockSpeechOnUserGesture()
-    const name = firstName()
-    setTimeout(() => speakPrepared(`Oi, ${name}. Tudo bem? Esta é a voz atual do seu copiloto de obra.`, false), 80)
-  })
-  voiceBox.append(label, select, test)
-
-  renderAuto()
-  wrap.append(autoButton, voiceBox)
+  test.onclick = () => {
+    unlockSpeech()
+    window.setTimeout(() => speak(`Oi, ${firstName()}. Tudo bem? Esta é a voz atual do seu copiloto de obra.`, false), 80)
+  }
+  picker.append(label, select, test)
+  wrap.append(auto, picker)
   orb.insertAdjacentElement('afterend', wrap)
+  controlsMounted = true
 }
 
 function wireMic() {
-  const { mic } = getVoiceParts()
+  const { mic } = parts()
   if (!mic || mic.dataset.voiceConversationWired === '1') return
   mic.dataset.voiceConversationWired = '1'
-
   mic.addEventListener('click', () => {
     stopSpeaking()
     if (programmaticClick) return
-
     sessionArmed = true
     setAutoEnabled(true)
-    unlockSpeechOnUserGesture()
-    clearTranscriptOnly()
+    unlockSpeech()
+    clearTranscript()
     processing = false
-    setTimeout(() => ensureConversationControl(), 0)
   }, { capture: true })
 }
 
 function inspectAnswer() {
-  const { result } = getVoiceParts()
+  const { result } = parts()
   if (!result) return
   const heading = result.querySelector('h3') as HTMLElement | null
   const raw = heading?.dataset.rawAnswer || heading?.textContent?.trim() || ''
   if (!heading || !raw || raw === lastAnswer) return
   if (!heading.dataset.rawAnswer) heading.dataset.rawAnswer = raw
-
   lastAnswer = raw
   processing = false
-  clearTranscriptOnly()
+  clearTranscript()
   const needsConfirmation = !!result.querySelector('.v4-primary')
-  const combined = needsConfirmation ? `${raw}. Se estiver correto, confirme a ação na tela.` : raw
-  const friendly = friendlyAnswer(combined)
-  heading.textContent = friendly
-  heading.dataset.voiceFriendly = '1'
-  speakPrepared(friendly, !needsConfirmation)
-}
-
-function speakMessageIfNeeded() {
-  if (!processing) return
-  const msg = document.querySelector('.v4-agent-message')?.textContent?.trim() || ''
-  if (!msg) return
-  processing = false
-  clearTranscriptOnly()
-  const friendly = friendlyAnswer(msg)
-  speakPrepared(friendly, sessionArmed)
+  const base = needsConfirmation ? `${raw}. Se estiver correto, confirme a ação na tela.` : raw
+  const friendly = friendlyAnswer(base)
+  if (heading.textContent !== friendly) heading.textContent = friendly
+  speak(friendly, !needsConfirmation)
 }
 
 function pollConversation() {
-  ensureConversationControl()
+  mountControls()
   wireMic()
   inspectAnswer()
-  speakMessageIfNeeded()
 
-  const { orb, mic, textarea, understand } = getVoiceParts()
+  const { orb, mic, textarea, understand } = parts()
   if (!orb || !mic || !textarea || !understand || !sessionArmed || !autoEnabled() || speaking || processing) return
 
   const listening = orb.classList.contains('listening')
   const value = textarea.value.trim()
+  if (!listening) return
 
-  if (listening) {
-    if (value !== lastTranscript) {
-      lastTranscript = value
-      lastTranscriptChange = Date.now()
-    }
+  if (value !== lastTranscript) {
+    lastTranscript = value
+    lastTranscriptChange = Date.now()
+    return
+  }
 
-    if (value.length >= 3 && Date.now() - lastTranscriptChange >= SILENCE_MS) {
-      processing = true
-      clickProgrammatically(mic)
-      setTimeout(() => {
-        const current = getVoiceParts()
-        if (current.understand && !current.understand.disabled) clickProgrammatically(current.understand)
-        else processing = false
-      }, 300)
-    }
+  if (value.length >= 3 && Date.now() - lastTranscriptChange >= SILENCE_MS) {
+    processing = true
+    clickProgrammatically(mic)
+    window.setTimeout(() => {
+      const p = parts()
+      if (p.understand && !p.understand.disabled) clickProgrammatically(p.understand)
+      else processing = false
+    }, 350)
   }
 }
 
 function boot() {
   if ('speechSynthesis' in window) {
     const warm = () => {
-      try {
-        window.speechSynthesis.getVoices()
-        window.speechSynthesis.resume()
-        const select = document.querySelector('.v4-voice-picker select') as HTMLSelectElement | null
-        if (select) populateVoiceSelect(select)
-      } catch {}
+      try { window.speechSynthesis.getVoices(); window.speechSynthesis.resume() } catch {}
+      const select = document.querySelector('.v4-voice-picker select') as HTMLSelectElement | null
+      if (select) fillVoiceSelect(select)
     }
     warm()
     window.speechSynthesis.addEventListener?.('voiceschanged', warm)
   }
 
-  const observer = new MutationObserver(() => {
-    ensureConversationControl()
-    updateOrbCopy()
-    wireMic()
-    inspectAnswer()
-    speakMessageIfNeeded()
-  })
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] })
-
-  setInterval(pollConversation, 220)
+  // Deliberadamente sem MutationObserver: a versão anterior reagia às próprias
+  // alterações do DOM e podia criar um loop pesado no Safari/iPhone.
+  window.setInterval(pollConversation, 420)
   pollConversation()
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true })
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true })
 else boot()
