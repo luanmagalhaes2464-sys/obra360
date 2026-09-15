@@ -1,14 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import AppOSV3 from './AppOSV3'
-import AutopilotDock from './AutopilotDock'
-import './os-v3.css'
-import './autopilot.css'
-import './agents.css'
+import AppOSV4 from './AppOSV4'
+import './os-v4.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AppOSV3 />
-    <AutopilotDock />
+    <AppOSV4 />
   </React.StrictMode>,
 )
