@@ -6,9 +6,11 @@ import './overview-v5.css'
 import './stage-guides.css'
 import './ui-refinements.css'
 import './ui-refinements-v2.css'
+import './stage-planning.css'
 import './voice-conversation-stable'
 import './ui-refinements'
 import './ui-refinements-v2'
+import './stage-planning'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
