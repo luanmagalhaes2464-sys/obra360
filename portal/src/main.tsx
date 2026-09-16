@@ -5,8 +5,10 @@ import './os-v4.css'
 import './overview-v5.css'
 import './stage-guides.css'
 import './ui-refinements.css'
+import './ui-refinements-v2.css'
 import './voice-conversation-stable'
 import './ui-refinements'
+import './ui-refinements-v2'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
