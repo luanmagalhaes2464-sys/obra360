@@ -7,11 +7,14 @@ function replaceText(root:ParentNode,from:string,to:string){
 function applyBrand(){
   document.title='TecnoMata Engenharia — Portal da Obra'
 
-  const brand=document.querySelector('.v4-brand') as HTMLElement|null
-  if(brand&&!brand.dataset.tmBrand){
-    brand.dataset.tmBrand='1'
-    brand.innerHTML='<span class="tm-brand-mark">T</span><div><b>TECNOMATA</b><small>ENGENHARIA</small></div>'
-  }
+  // Não reescreve o HTML da marca: isso apagava o Matinho inserido pelo módulo visual.
+  document.querySelectorAll('.v4-brand').forEach(brand=>{
+    const name=brand.querySelector('b')
+    const sub=brand.querySelector('small')
+    if(name)name.textContent='TECNOMATA'
+    if(sub)sub.textContent='ENGENHARIA'
+    brand.setAttribute('data-tm-brand','1')
+  })
 
   replaceText(document,'Copiloto Obra360','Matinho · Copiloto')
   replaceText(document,'COPILOTO OBRA360','MATINHO · COPILOTO')
