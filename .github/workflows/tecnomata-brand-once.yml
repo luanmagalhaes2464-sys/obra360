@@ -1,0 +1,42 @@
+name: Aplicar marca TecnoMata no site
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tecnomata-brand-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar marca visível
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('Obra360: diagnóstico inteligente para quem vai construir.', 'TecnoMata Engenharia: diagnóstico inteligente para quem vai construir.')
+          s=s.replace('<title>Obra360 — Planeje antes de construir</title>', '<title>TecnoMata Engenharia — Planeje antes de construir</title>')
+          s=s.replace('aria-label="Obra360"', 'aria-label="TecnoMata Engenharia"')
+          s=s.replace('<span class="brand-mark">O</span><span>OBRA<span class="brand-accent">360</span></span>', '<span class="brand-mark">T</span><span>TECNO<span class="brand-accent">MATA</span></span>')
+          s=s.replace('POR QUE CONTRATAR A OBRA360', 'POR QUE CONTRATAR A TECNOMATA ENGENHARIA')
+          s=s.replace('© 2026 Obra360', '© 2026 TecnoMata Engenharia')
+          s=s.replace('Obra360', 'TecnoMata Engenharia')
+          p.write_text(s,encoding='utf-8')
+          js=Path('app.js')
+          if js.exists():
+              j=js.read_text(encoding='utf-8').replace('Obra360','TecnoMata Engenharia').replace('OBRA360','TECNOMATA ENGENHARIA')
+              js.write_text(j,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "TecnoMata Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html app.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Renomeia site institucional para TecnoMata Engenharia [skip ci]"
+          git push
