@@ -25,6 +25,10 @@ jobs:
           cache-dependency-path: portal/package-lock.json
       - run: npm ci
       - run: npm run check
+      - name: Validate Render production installation
+        run: |
+          npm ci --omit=dev
+          NODE_ENV=production npm run build
       - name: Check active server syntax
         run: |
           node --check server-proxy-v5.mjs

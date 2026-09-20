@@ -34,6 +34,11 @@ não substituem essa verificação.
 
 ## Infraestrutura e banco
 
+O primeiro build no Render omitiu devDependencies por NODE_ENV=production.
+TypeScript e tipos React foram movidos para dependencies, junto das ferramentas
+Vite já necessárias ao build. O CI agora reproduz instalação com --omit=dev.
+Nenhum comando ou variável do serviço precisou ser alterado.
+
 Mesmo GitHub, branch main de produção, Render obra360-portal e PostgreSQL.
 Sem mudança de configuração, variáveis, planos, schema ou dados. Nenhum recurso
 novo. Deploy via auto-deploy já existente. Rollback pelo commit/deploy anterior.
