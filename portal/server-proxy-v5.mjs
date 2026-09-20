@@ -1,6 +1,7 @@
 import http from 'http'
 import { spawn } from 'child_process'
 import jwt from 'jsonwebtoken'
+import { parseCookies, responseHeaders } from './lib/http-safety.mjs'
 
 const PORT = Number(process.env.PORT || 10000)
 const GATEWAY_PORT = Number(process.env.TECNOMATA_GATEWAY_PORT || 10001)
@@ -8,16 +9,6 @@ const CORE_PORT = Number(process.env.TECNOMATA_CORE_PORT_V5 || 10002)
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production'
 const COOKIE = 'obra360_session'
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
-
-function parseCookies(raw = '') {
-  const out = {}
-  for (const part of raw.split(';')) {
-    const i = part.indexOf('=')
-    if (i < 0) continue
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim())
-  }
-  return out
-}
 
 function authenticated(req) {
   const token = parseCookies(req.headers.cookie || '')[COOKIE]
@@ -179,6 +170,9 @@ child.on('exit', (code, signal) => {
 })
 
 const server = http.createServer(async (req, res) => {
+  for (const [name, value] of Object.entries(responseHeaders({}, req.url || '/'))) {
+    res.setHeader(name, value)
+  }
   try {
     const url = new URL(req.url || '/', 'http://localhost')
     if (url.pathname === '/api/voice/speak' || url.pathname === '/api/voice/status') {
@@ -198,7 +192,7 @@ const server = http.createServer(async (req, res) => {
     method: req.method,
     headers,
   }, upstream => {
-    res.writeHead(upstream.statusCode || 502, upstream.headers)
+    res.writeHead(upstream.statusCode || 502, responseHeaders(upstream.headers, req.url || '/'))
     upstream.pipe(res)
   })
   proxy.on('error', err => {

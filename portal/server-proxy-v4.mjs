@@ -2,6 +2,7 @@ import http from 'http'
 import { spawn } from 'child_process'
 import jwt from 'jsonwebtoken'
 import pg from 'pg'
+import { parseCookies } from './lib/http-safety.mjs'
 
 const { Pool } = pg
 const PORT = Number(process.env.PORT || 10000)
@@ -41,16 +42,6 @@ async function migrateFinance() {
     CREATE INDEX IF NOT EXISTS idx_os_cost_entries_project_date ON os_cost_entries(project_id,entry_date DESC,id DESC);
     CREATE INDEX IF NOT EXISTS idx_os_cost_entries_stage ON os_cost_entries(project_id,stage_key);
   `)
-}
-
-function parseCookies(raw = '') {
-  const out = {}
-  for (const part of raw.split(';')) {
-    const i = part.indexOf('=')
-    if (i < 0) continue
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim())
-  }
-  return out
 }
 
 async function currentUser(req) {
