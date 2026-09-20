@@ -1,0 +1,34 @@
+name: Portal quality
+
+on:
+  push:
+    paths: ['portal/**', '.github/workflows/portal-quality.yml']
+  pull_request:
+    paths: ['portal/**', '.github/workflows/portal-quality.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: portal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - name: Check active server syntax
+        run: |
+          node --check server-proxy-v5.mjs
+          node --check server-proxy-v4.mjs
+          node --check server-launcher-safe-v2.mjs
+          node --check server-launcher-safe.mjs
+          node --check server-v3.mjs
