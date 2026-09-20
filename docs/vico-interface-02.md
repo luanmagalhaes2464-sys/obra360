@@ -28,7 +28,9 @@ TypeScript e sintaxe dos gateways passaram. Fixtures apenas em testes locais;
 nenhum dado fictício inserido no banco de produção.
 
 O navegador remoto bloqueou a prévia em localhost. A validação visual pública
-deve ser feita após deploy. Fluxos autenticados completos e testes reais em
+foi feita após deploy: tela VIÇO confirmada, health 200, API protegida 401 e
+headers de segurança presentes. Foi corrigido o contraste dos botões observado
+na captura real. Fluxos autenticados completos e testes reais em
 mobile continuam dependentes de acesso apropriado; os testes de renderização
 não substituem essa verificação.
 
