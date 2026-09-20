@@ -109,7 +109,7 @@ app.post('/api/voice/speak',auth,async(req,res)=>{
   }catch(e){console.error('tts-gemini',e);res.status(502).json({error:'Falha ao gerar voz natural'})}
 })
 app.get('/api/voice/status',auth,(_req,res)=>res.json({naturalVoice:Boolean(process.env.GEMINI_API_KEY),provider:process.env.GEMINI_API_KEY?'gemini':'browser',model:'gemini-3.1-flash-tts-preview',voice:process.env.GEMINI_TTS_VOICE||'Kore',freeTier:true}))
-console.log('Obra360 voz natural:',process.env.GEMINI_API_KEY?'Gemini configurado':'sem GEMINI_API_KEY; usando fallback do aparelho')
+console.log('Voz VIÇO:',process.env.GEMINI_API_KEY?'Gemini configurado':'sem GEMINI_API_KEY; usando fallback do aparelho')
 `
 
 source = source.replace(anchor, agentRoutes + '\n' + ttsRoutes + '\n' + anchor)

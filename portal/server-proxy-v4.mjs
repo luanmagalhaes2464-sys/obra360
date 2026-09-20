@@ -230,7 +230,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`TecnoMata Gateway ativo na porta ${PORT}; núcleo na ${CHILD_PORT}`)
+  console.log(`Gateway VIÇO ativo na porta ${PORT}; núcleo na ${CHILD_PORT}`)
 })
 
 async function shutdown() {
