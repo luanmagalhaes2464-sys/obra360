@@ -102,7 +102,7 @@ function Router(props:any){
   if(view==='photos')return <Photos b={b} reload={reload} notify={notify}/>
   if(view==='architecture')return <Architecture b={b} user={user} staff={staff} reload={reload} notify={notify}/>
   if(view==='engineering')return <Engineering b={b} staff={staff} reload={reload} notify={notify}/>
-  if(view==='city')return <Discipline b={b} user={user} staff={staff} reload={reload} notify={notify} tag="PREFEITURA & REGULARIZAÇÃO" title="O caminho até a obra regularizada." text="O Obra360 organiza as ações municipais e federais no momento em que entram na jornada." filters={['prefeitura','federal']} icon={Landmark}/>
+  if(view==='city')return <Discipline b={b} user={user} staff={staff} reload={reload} notify={notify} tag="PREFEITURA & REGULARIZAÇÃO" title="O caminho até a obra regularizada." text="A VIÇO organiza as ações municipais e federais no momento em que entram na jornada." filters={['prefeitura','federal']} icon={Landmark}/>
   if(view==='safety')return <Safety b={b} user={user} staff={staff} reload={reload} notify={notify}/>
   if(view==='finance')return <Finance b={b}/>
   if(view==='memory')return <Memory b={b} staff={staff} reload={reload}/>

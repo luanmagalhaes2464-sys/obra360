@@ -34,6 +34,10 @@ na captura real. Fluxos autenticados completos e testes reais em
 mobile continuam dependentes de acesso apropriado; os testes de renderização
 não substituem essa verificação.
 
+A identidade do núcleo ativo de voz/IA também foi padronizada como Agente da
+Obra da VIÇO. O endpoint de saúde identifica o produto como VIÇO e preserva o
+identificador técnico do serviço `obra360-portal`.
+
 ## Infraestrutura e banco
 
 O primeiro build no Render omitiu devDependencies por NODE_ENV=production.

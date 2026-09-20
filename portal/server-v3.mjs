@@ -58,7 +58,7 @@ async function getBundle(projectId){
 }
 
 const app=express();app.disable('x-powered-by');app.use(express.json({limit:'8mb'}));app.use(cookieParser())
-app.get('/api/health',(_req,res)=>res.json({ok:true,product:'Obra360 OS v3'}))
+app.get('/api/health',(_req,res)=>res.json({ok:true,product:'VIÇO',service:'obra360-portal'}))
 app.post('/api/auth/login',async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase(),password=String(req.body.password||''),q=await pool.query('SELECT * FROM users WHERE email=$1',[email]),u=q.rows[0];if(!u||!(await bcrypt.compare(password,u.password_hash)))return res.status(401).json({error:'E-mail ou senha inválidos'});const token=jwt.sign({id:u.id,name:u.name,email:u.email,role:u.role},JWT_SECRET,{expiresIn:'7d'});res.cookie(COOKIE,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:604800000});res.json({user:{id:u.id,name:u.name,email:u.email,role:u.role}})})
 app.post('/api/auth/logout',(_req,res)=>{res.clearCookie(COOKIE);res.json({ok:true})})
 app.get('/api/me',auth,async(req,res)=>{const q=await pool.query('SELECT id,name,email,role FROM users WHERE id=$1',[req.user.id]);res.json({user:q.rows[0]})})

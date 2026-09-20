@@ -5,7 +5,7 @@ const runtimePath = new URL('./.server-launcher-safe-v2-runtime.mjs', import.met
 
 let source = await fs.readFile(sourcePath, 'utf8')
 const marker = 'const ttsRoutes = String.raw`'
-if (!source.includes(marker)) throw new Error('Ponto de extensão do Matinho não encontrado.')
+if (!source.includes(marker)) throw new Error('Ponto de extensão do Agente da Obra não encontrado.')
 
 const route = String.raw`
 app.post('/api/os/projects/:id/copilot/interpret',auth,async(req,res)=>{
@@ -37,7 +37,7 @@ app.post('/api/os/projects/:id/copilot/interpret',auth,async(req,res)=>{
 
   if(process.env.GEMINI_API_KEY && looksLikeQuestion){
     try{
-      const prompt='Você é Matinho, copiloto da TecnoMata Engenharia. Responda em português brasileiro, de forma educada, natural, objetiva e útil. NÃO repita nem parafraseie a pergunta do usuário como resposta. Para dados da obra, use exclusivamente o contexto do sistema abaixo como fonte de verdade. Para informações externas, atuais, normas, referências, preços, notícias ou fatos públicos, você pode usar a Pesquisa Google habilitada. Se a pergunta misturar obra e internet, deixe claro o que vem do sistema e o que vem de fonte externa. Nunca declare aprovação técnica, conformidade estrutural ou segurança sem validação do profissional responsável. Se não houver dado suficiente no sistema, diga isso.\n\nCONTEXTO DO SISTEMA:\n'+context+'\n\nPERGUNTA DO USUÁRIO:\n'+transcript
+      const prompt='Você é o Agente da Obra da VIÇO. Responda em português brasileiro, de forma educada, natural, objetiva e útil. NÃO repita nem parafraseie a pergunta do usuário como resposta. Para dados da obra, use exclusivamente o contexto do sistema abaixo como fonte de verdade. Para informações externas, atuais, normas, referências, preços, notícias ou fatos públicos, você pode usar a Pesquisa Google habilitada. Se a pergunta misturar obra e internet, deixe claro o que vem do sistema e o que vem de fonte externa. Nunca declare aprovação técnica, conformidade estrutural ou segurança sem validação do profissional responsável. Se não houver dado suficiente no sistema, diga isso.\n\nCONTEXTO DO SISTEMA:\n'+context+'\n\nPERGUNTA DO USUÁRIO:\n'+transcript
       const gr=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],tools:[{google_search:{}}],generationConfig:{temperature:0.25,maxOutputTokens:520}})})
       if(gr.ok){
         const gd=await gr.json()
@@ -51,7 +51,7 @@ app.post('/api/os/projects/:id/copilot/interpret',auth,async(req,res)=>{
 
   if(process.env.GEMINI_API_KEY && !looksLikeQuestion){
     try{
-      const prompt='Você é Matinho, agente operacional da TecnoMata Engenharia. Interprete o comando do usuário usando SOMENTE ids existentes no checklist abaixo. Não invente ids. Retorne somente JSON válido com os campos action, taskIds, answer, createLabel, safety e confidence. action deve ser um de: done, reopen, na, create_task, create_stage, attention, log, query. Use done somente quando o usuário mandar explicitamente concluir ou marcar um item. Para concluir uma etapa inteira, não marque todos os itens automaticamente: use query e explique que a etapa depende dos itens aplicáveis. Não aprove tecnicamente estrutura, fundações, SST, Prefeitura, ART/RRT ou financeiro. Comandos sensíveis serão confirmados na interface. Se for apenas uma pergunta, use query e responda em answer.\n\nCONTEXTO:\n'+context+'\n\nCOMANDO:\n'+transcript
+      const prompt='Você é o Agente da Obra da VIÇO. Interprete o comando do usuário usando SOMENTE ids existentes no checklist abaixo. Não invente ids. Retorne somente JSON válido com os campos action, taskIds, answer, createLabel, safety e confidence. action deve ser um de: done, reopen, na, create_task, create_stage, attention, log, query. Use done somente quando o usuário mandar explicitamente concluir ou marcar um item. Para concluir uma etapa inteira, não marque todos os itens automaticamente: use query e explique que a etapa depende dos itens aplicáveis. Não aprove tecnicamente estrutura, fundações, SST, Prefeitura, ART/RRT ou financeiro. Comandos sensíveis serão confirmados na interface. Se for apenas uma pergunta, use query e responda em answer.\n\nCONTEXTO:\n'+context+'\n\nCOMANDO:\n'+transcript
       const gr=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.08,maxOutputTokens:420,responseMimeType:'application/json'}})})
       if(gr.ok){
         const gd=await gr.json();const txt=gd?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';const parsed=JSON.parse(txt)
@@ -70,14 +70,14 @@ app.post('/api/os/projects/:id/copilot/interpret',auth,async(req,res)=>{
 `
 
 const enhancement = `
-// Matinho v2: interpretação sem eco, acesso ao contexto da obra e pesquisa web quando necessário.
-const matinhoInterpretStart = "app.post('/api/os/projects/:id/copilot/interpret'"
-const matinhoInterpretEnd = "app.post('/api/os/projects/:id/copilot/apply'"
-const matinhoStartAt = agentRoutes.indexOf(matinhoInterpretStart)
-const matinhoEndAt = agentRoutes.indexOf(matinhoInterpretEnd, matinhoStartAt)
-if (matinhoStartAt < 0 || matinhoEndAt < 0) throw new Error('Rota de interpretação do Matinho não encontrada.')
-const matinhoInterpretRoute = ${JSON.stringify(route)}
-agentRoutes = agentRoutes.slice(0,matinhoStartAt)+matinhoInterpretRoute+agentRoutes.slice(matinhoEndAt)
+// Agente VIÇO: interpretação sem eco, acesso ao contexto da obra e pesquisa web quando necessário.
+const agentInterpretStart = "app.post('/api/os/projects/:id/copilot/interpret'"
+const agentInterpretEnd = "app.post('/api/os/projects/:id/copilot/apply'"
+const agentStartAt = agentRoutes.indexOf(agentInterpretStart)
+const agentEndAt = agentRoutes.indexOf(agentInterpretEnd, agentStartAt)
+if (agentStartAt < 0 || agentEndAt < 0) throw new Error('Rota de interpretação do Agente da Obra não encontrada.')
+const agentInterpretRoute = ${JSON.stringify(route)}
+agentRoutes = agentRoutes.slice(0,agentStartAt)+agentInterpretRoute+agentRoutes.slice(agentEndAt)
 `
 
 source = source.replace(marker, enhancement + '\n' + marker)

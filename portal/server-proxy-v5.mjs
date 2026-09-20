@@ -68,7 +68,7 @@ async function generateVoice(text, voice) {
   ])]
   const style = [
     'Fale em português brasileiro.',
-    'Você é Matinho, assistente da TecnoMata Engenharia.',
+    'Você é o Agente da Obra da VIÇO.',
     'Use uma voz adulta, segura, calma, simpática e profissional.',
     'Fale com ritmo de conversa normal, articulação clara e pausas naturais.',
     'Mantenha a voz estável e confiante: sem tremor, sem tom de medo, sem sussurro e sem teatralidade.',
@@ -165,7 +165,7 @@ const child = spawn(process.execPath, ['server-proxy-v4.mjs'], {
 })
 
 child.on('exit', (code, signal) => {
-  console.error('Gateway TecnoMata encerrado', { code, signal })
+  console.error('Gateway VIÇO encerrado', { code, signal })
   process.exit(code || 1)
 })
 
@@ -181,7 +181,7 @@ const server = http.createServer(async (req, res) => {
     }
   } catch (e) {
     console.error('voice-gateway', e)
-    if (!res.headersSent) return json(res, 500, { error: 'Falha ao processar a voz do Matinho.' })
+    if (!res.headersSent) return json(res, 500, { error: 'Falha ao processar a voz do Agente da Obra.' })
   }
 
   const headers = { ...req.headers, host: `127.0.0.1:${GATEWAY_PORT}` }
@@ -204,7 +204,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`TecnoMata Voice Gateway ativo na porta ${PORT}; gateway na ${GATEWAY_PORT}; núcleo na ${CORE_PORT}`)
+  console.log(`Gateway de voz VIÇO ativo na porta ${PORT}; gateway na ${GATEWAY_PORT}; núcleo na ${CORE_PORT}`)
 })
 
 async function shutdown() {
