@@ -108,11 +108,5 @@ async function openGuide(main:Element){
   const foot=make('div','v4-task-guide-footer');foot.append(make('p','','O Matinho orienta o fluxo e explica o checklist. Ele não substitui projeto, inspeção, ART/RRT, responsável técnico ou exigência do órgão competente.'));const close=make('button','','Fechar');close.onclick=closeModal;foot.append(close);dialog.append(foot)
   modal.append(dialog);modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});document.body.append(modal);document.documentElement.classList.add('v4-guide-modal-open')
 }
-function fixBrand(){
-  const src=mascotSrc();document.querySelectorAll('.v4-brand').forEach(brand=>{let img=brand.querySelector(':scope > img.v4-matinho-visible-logo') as HTMLImageElement|null;if(!img){img=document.createElement('img');img.className='v4-matinho-visible-logo';img.alt='Matinho';brand.insertBefore(img,brand.firstChild)}img.src=src;const b=brand.querySelector('b');const s=brand.querySelector('small');if(b)b.textContent='TECNOMATA';if(s)s.textContent='ENGENHARIA'})
-  const state=document.querySelector('.v4-copilot-state');if(state&&!state.querySelector('img')){const im=document.createElement('img');im.src=src;im.alt='Matinho';state.prepend(im)}
-}
 window.addEventListener('click',event=>{const target=event.target as Element|null;const main=target?.closest?.('.v4-task-main');if(!main)return;event.preventDefault();event.stopPropagation();void openGuide(main)},true)
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()})
-function tick(){fixBrand()}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{tick();setInterval(tick,1200)},{once:true});else{tick();setInterval(tick,1200)}

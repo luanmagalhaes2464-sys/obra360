@@ -269,18 +269,6 @@ function isNo(text: string) {
   return /^(não|nao|não pode|nao pode|cancela|cancelar|deixa|deixa pra lá|deixa para la|esquece)$/i.test(text.trim())
 }
 
-function explicitCommand(text: string) {
-  return /\b(marque|marca|marcar|adicione|adiciona|crie|cria|registre|registra|reabra|reabre|coloque|coloca|inclua|inclui|terminei|terminamos|concluí|concluimos|concluímos|finalizei|finalizamos|ficou pronto|feito)\b/i.test(text)
-}
-
-function sensitiveCommand(text: string) {
-  return /\b(seguran[cç]a|sst|epi|epc|pgr|nr\s*-?\s*(18|35)|estrutura|funda[cç][aã]o|concret|armadura|laje|viga|pilar|alvar[aá]|habite|licen[cç]a|prefeitura|art\b|rrt\b|pagamento|medi[cç][aã]o|or[cç]amento|financeir|custo|aprova[cç][aã]o t[eé]cnica)\b/i.test(text)
-}
-
-function shouldAutoApply(text: string) {
-  return explicitCommand(text) && !sensitiveCommand(text)
-}
-
 function cancelPendingAction() {
   const { clear } = getParts()
   clickProgrammatically(clear)
@@ -296,7 +284,7 @@ function handlePendingVoiceConfirmation(text: string) {
     const button = pendingConfirmButton
     awaitingVoiceConfirmation = false
     pendingConfirmButton = null
-    if (button && !button.disabled) {
+    if (button && button.isConnected && !button.disabled) {
       processing = true
       clickProgrammatically(button)
     } else {
@@ -333,11 +321,6 @@ function inspectResponse() {
   if (heading && heading.textContent !== friendly) heading.textContent = friendly
 
   if (confirm) {
-    if (shouldAutoApply(currentUtterance)) {
-      processing = true
-      clickProgrammatically(confirm)
-      return true
-    }
     pendingConfirmButton = confirm
     awaitingVoiceConfirmation = true
     processing = false
