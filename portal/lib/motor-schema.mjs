@@ -1,6 +1,7 @@
 export const MOTOR_MIGRATION_VERSION = '2026.09.21-motor-01'
 export const FIELD_MIGRATION_VERSION = '2026.09.21-field-01'
 export const CAPACITY_MIGRATION_VERSION = '2026.09.21-capacity-01'
+export const GOVERNANCE_MIGRATION_VERSION = '2026.09.21-governance-01'
 
 export const MOTOR_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -220,6 +221,8 @@ CREATE TABLE IF NOT EXISTS document_versions(
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(document_id,version_number)
 );
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS mime_type TEXT;
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS file_size INTEGER CHECK(file_size IS NULL OR file_size >= 0);
 
 CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id,id);
 CREATE INDEX IF NOT EXISTS idx_company_users_user ON company_users(user_id,company_id) WHERE is_active=true;
@@ -248,6 +251,7 @@ export async function migrateMotor(pool) {
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [MOTOR_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [FIELD_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [CAPACITY_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [GOVERNANCE_MIGRATION_VERSION])
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
