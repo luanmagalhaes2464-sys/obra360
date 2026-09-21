@@ -14,6 +14,7 @@ import './stage-planning'
 import './finance-connectivity'
 import './vico.css'
 import './motor-planning.css'
+import './field-operations.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

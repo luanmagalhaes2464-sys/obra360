@@ -1,4 +1,5 @@
 export const MOTOR_MIGRATION_VERSION = '2026.09.21-motor-01'
+export const FIELD_MIGRATION_VERSION = '2026.09.21-field-01'
 
 export const MOTOR_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -144,6 +145,29 @@ CREATE TABLE IF NOT EXISTS productivity_records(
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS daily_report_workers(
+  id SERIAL PRIMARY KEY,
+  daily_report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+  worker_id INTEGER REFERENCES workers(id) ON DELETE SET NULL,
+  role_label TEXT,
+  presence_status TEXT NOT NULL DEFAULT 'present' CHECK(presence_status IN ('present','absent','partial')),
+  hours_worked NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK(hours_worked >= 0),
+  notes TEXT
+);
+CREATE TABLE IF NOT EXISTS occurrences(
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  activity_id INTEGER REFERENCES os_tasks(id) ON DELETE SET NULL,
+  daily_report_id INTEGER REFERENCES daily_reports(id) ON DELETE SET NULL,
+  occurrence_type TEXT NOT NULL CHECK(occurrence_type IN ('chuva','falta_material','falta_trabalhador','acidente_incidente','retrabalho','atraso_fornecedor','mudanca_projeto','equipamento_quebrado','interferencia','erro_execucao','paralisacao','outro')),
+  title TEXT NOT NULL,
+  description TEXT,
+  impact_days NUMERIC(8,2),
+  impact_cost NUMERIC(14,2),
+  status TEXT NOT NULL DEFAULT 'recorded' CHECK(status IN ('recorded','reviewed','closed')),
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS safety_requirements(
   id SERIAL PRIMARY KEY,
@@ -202,6 +226,8 @@ CREATE INDEX IF NOT EXISTS idx_dependencies_project ON activity_dependencies(pro
 CREATE INDEX IF NOT EXISTS idx_blockers_active ON blockers(project_id,activity_id) WHERE status='active';
 CREATE INDEX IF NOT EXISTS idx_allocations_period ON allocations(project_id,start_date,end_date);
 CREATE INDEX IF NOT EXISTS idx_productivity_activity_date ON productivity_records(activity_id,record_date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_reports_project_date ON daily_reports(project_id,report_date DESC);
+CREATE INDEX IF NOT EXISTS idx_occurrences_project_date ON occurrences(project_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(project_id,document_type,status);
 `
 
@@ -217,6 +243,7 @@ export async function migrateMotor(pool) {
       SELECT $1,id,CASE WHEN role='admin' THEN 'company_admin' WHEN role='team' THEN 'team' ELSE 'client' END FROM users
       ON CONFLICT(company_id,user_id) DO NOTHING`, [companyId])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [MOTOR_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [FIELD_MIGRATION_VERSION])
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
