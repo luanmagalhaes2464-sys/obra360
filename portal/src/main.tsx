@@ -13,6 +13,7 @@ import './ui-refinements-v2'
 import './stage-planning'
 import './finance-connectivity'
 import './vico.css'
+import './motor-planning.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

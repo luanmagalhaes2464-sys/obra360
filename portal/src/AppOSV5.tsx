@@ -1,6 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Bot, Building2, Camera, Check, CheckCircle2,
+  AlertTriangle, ArrowLeft, ArrowRight, Bot, Building2, CalendarRange, Camera, Check, CheckCircle2,
   ChevronDown, ChevronRight, CircleDollarSign, ClipboardCheck, Construction, Copy,
   Download, FileSearch, FileText, Fingerprint, GalleryHorizontalEnd, HardHat, Home,
   ImagePlus, Landmark, Layers3, ListChecks, LoaderCircle, LogOut, Menu, Mic, MicOff,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import StageGuide from './StageGuide'
 import VicoOverview from './VicoOverview'
+import MotorPlanning from './MotorPlanning'
 
 type User = { id:number; name:string; email:string; role:'admin'|'team'|'client' }
 type Project = { id:number; name:string; city?:string; address?:string; client_name?:string; status:string; budget:number|string; spent:number|string; committed?:number|string; updated_at?:string }
@@ -17,7 +18,7 @@ type Stage = { num:string; key:string; title:string; summary:string; total:numbe
 type Photo = { id:number; data_url:string; caption?:string; stage_key?:string; task_id?:number; task_title?:string; ai_summary?:string; ai_confidence?:number|string; ai_tags?:string[]; ai_safety?:string[]; uploaded_by_name?:string; created_at:string }
 type Passport = { id:number; system_type:string; zone?:string; title:string; description?:string; photo_url?:string; warranty_until?:string; supplier?:string }
 type Bundle = { project:Project; profile:any; workflowVersion?:string; tasks:Task[]; events:any[]; passport:Passport[]; photos:Photo[]; stages:Stage[]; disciplines:Record<string,{total:number;done:number}>; summary:{ total:number; done:number; na:number; applicable:number; progress:number; nextTask?:Task|null } }
-type View = 'dashboard'|'roadmap'|'photos'|'architecture'|'engineering'|'city'|'safety'|'finance'|'memory'|'copilot'|'settings'
+type View = 'dashboard'|'planning'|'roadmap'|'photos'|'architecture'|'engineering'|'city'|'safety'|'finance'|'memory'|'copilot'|'settings'
 type AgentTab = 'voice'|'vision'|'report'
 type VoiceAnalysis = { summary:string; action:'done'|'reopen'|'na'|'create_task'|'create_stage'|'query'|'log'|'attention'; suggestions:{id:number;title:string;stageKey?:string;discipline?:string;confidence?:number}[]; safety:string[]; nextStep?:string; answer?:string; createLabel?:string; confidence?:number; mode?:string }
 type VisionAnalysis = { title:string; category:string; summary:string; stageKey?:string|null; discipline:string; taskIds:number[]; checklistSuggestions:string[]; observations:string[]; safety:string[]; architecture:string[]; municipality:string[]; extracted:Record<string,any>; confidence:number; mode?:string }
@@ -75,7 +76,7 @@ function Portal({user,onLogout}:{user:User;onLogout:()=>void}){
   if(loading)return <Splash/>
   if(!projects.length)return <EmptyProjects staff={staff} reload={loadProjects} logout={logout}/>
   const nav:[View,string,any][]=[
-    ['dashboard',staff?'Central da obra':'Minha obra',Home],['roadmap','Etapas e checklist',ListChecks],['photos','Fotos & evidências',GalleryHorizontalEnd],
+    ['dashboard',staff?'Central da obra':'Minha obra',Home],...(staff?[['planning','Planejamento',CalendarRange] as [View,string,any]]:[]),['roadmap','Etapas e checklist',ListChecks],['photos','Fotos & evidências',GalleryHorizontalEnd],
     ['architecture','Arquitetura',Ruler],['engineering','Engenharia Civil',Construction],['city','Prefeitura & licenças',Landmark],['safety','Segurança do trabalho',HardHat],
     ['finance','Custos',WalletCards],['memory','Memória do imóvel',Fingerprint],['copilot','Assistente da obra',Sparkles],
     ...(staff?[['settings','Dados da obra',Settings2] as [View,string,any]]:[])
@@ -98,6 +99,7 @@ function Toggle({label,value,set}:{label:string;value:boolean;set:(v:boolean)=>v
 function Router(props:any){
   const{view,setView,b,user,staff,reload,notify,selectedStage,setSelectedStage,openStage,openCopilot,copilotTab,setCopilotTab}=props
   if(view==='dashboard')return <VicoOverview b={b} staff={staff} openStage={openStage} openCopilot={openCopilot} setView={setView}/>
+  if(view==='planning')return <MotorPlanning projectId={b.project.id} staff={staff} notify={notify}/>
   if(view==='roadmap')return <Roadmap b={b} user={user} staff={staff} reload={reload} notify={notify} selectedStage={selectedStage} setSelectedStage={setSelectedStage}/>
   if(view==='photos')return <Photos b={b} reload={reload} notify={notify}/>
   if(view==='architecture')return <Architecture b={b} user={user} staff={staff} reload={reload} notify={notify}/>

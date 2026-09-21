@@ -3,6 +3,8 @@ import { spawn } from 'child_process'
 import jwt from 'jsonwebtoken'
 import pg from 'pg'
 import { parseCookies } from './lib/http-safety.mjs'
+import { migrateMotor } from './lib/motor-schema.mjs'
+import { createMotorRoutes } from './lib/motor-routes.mjs'
 
 const { Pool } = pg
 const PORT = Number(process.env.PORT || 10000)
@@ -58,8 +60,11 @@ async function currentUser(req) {
 
 async function canAccess(user, projectId) {
   if (!user) return false
-  if (['admin', 'team'].includes(user.role)) return true
-  const q = await pool.query('SELECT 1 FROM project_members WHERE project_id=$1 AND user_id=$2', [projectId, user.id])
+  if (user.role === 'admin') return true
+  const q = await pool.query(`SELECT 1 FROM projects p
+    LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true
+    LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2
+    WHERE p.id=$1 AND (cu.user_id IS NOT NULL OR pm.user_id IS NOT NULL)`, [projectId, user.id])
   return q.rowCount > 0
 }
 
@@ -188,6 +193,8 @@ async function handleCosts(req, res, projectId, costId) {
 }
 
 await migrateFinance()
+await migrateMotor(pool)
+const handleMotorRequest = createMotorRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
 
 const child = spawn(process.execPath, ['server-launcher-safe-v2.mjs'], {
   cwd: process.cwd(),
@@ -196,13 +203,14 @@ const child = spawn(process.execPath, ['server-launcher-safe-v2.mjs'], {
 })
 
 child.on('exit', (code, signal) => {
-  console.error('Núcleo TecnoMata encerrado', { code, signal })
+  console.error('Núcleo VIÇO encerrado', { code, signal })
   process.exit(code || 1)
 })
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://localhost')
+    if (await handleMotorRequest(req, res, url)) return
     const match = url.pathname.match(/^\/api\/os\/projects\/(\d+)\/costs(?:\/(\d+))?\/?$/)
     if (match) return await handleCosts(req, res, Number(match[1]), match[2] ? Number(match[2]) : null)
   } catch (e) {
