@@ -110,8 +110,8 @@ function Router(props:any){
   if(view==='architecture')return <Architecture b={b} user={user} staff={staff} reload={reload} notify={notify}/>
   if(view==='engineering')return <Engineering b={b} staff={staff} reload={reload} notify={notify}/>
   if(view==='city')return <Discipline b={b} user={user} staff={staff} reload={reload} notify={notify} tag="PREFEITURA & REGULARIZAÇÃO" title="O caminho até a obra regularizada." text="A VIÇO organiza as ações municipais e federais no momento em que entram na jornada." filters={['prefeitura','federal']} icon={Landmark}/>
-  if(view==='safety')return <SafetyWorkspace projectId={b.project.id} notify={notify}/>
-  if(view==='documents')return <DocumentsWorkspace projectId={b.project.id} notify={notify}/>
+  if(view==='safety')return <SafetyWorkspace projectId={b.project.id} notify={notify} staff={staff}/>
+  if(view==='documents')return <DocumentsWorkspace projectId={b.project.id} notify={notify} staff={staff}/>
   if(view==='finance')return <Finance b={b}/>
   if(view==='memory')return <Memory b={b} staff={staff} reload={reload}/>
   if(view==='copilot')return <Copilot b={b} tab={copilotTab} setTab={setCopilotTab}/>
