@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { parseCookies } from './http-safety.mjs'
+import { interpretFieldVoice } from './field-voice.mjs'
 
 const OCCURRENCE_TYPES = new Set(['chuva','falta_material','falta_trabalhador','acidente_incidente','retrabalho','atraso_fornecedor','mudanca_projeto','equipamento_quebrado','interferencia','erro_execucao','paralisacao','outro'])
 
@@ -7,9 +8,9 @@ function send(res,status,body){const data=Buffer.from(JSON.stringify(body));res.
 async function readJson(req){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>256*1024)return null;chunks.push(chunk)}if(!chunks.length)return{};try{return JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{return null}}
 const isoDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value):null
 
-export function createFieldRoutes({pool,jwtSecret,cookieName='obra360_session'}){
+export function createFieldRoutes({pool,jwtSecret,cookieName='obra360_session',geminiApiKey}){
   async function currentUser(req){const token=parseCookies(req.headers.cookie||'')[cookieName];if(!token)return null;try{const payload=jwt.verify(token,jwtSecret),q=await pool.query('SELECT id,name,email,role FROM users WHERE id=$1',[payload.id]);return q.rows[0]||null}catch{return null}}
-  async function canAccess(user,projectId){if(!user)return false;if(user.role==='admin')return true;const q=await pool.query(`SELECT 1 FROM projects p LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2 WHERE p.id=$1 AND (cu.user_id IS NOT NULL OR pm.user_id IS NOT NULL)`,[projectId,user.id]);return q.rowCount>0}
+  async function canAccess(user,projectId){if(!user)return false;if(user.role==='admin')return true;const q=await pool.query(`SELECT 1 FROM projects p LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2 WHERE p.id=$1 AND (($3='team' AND cu.user_id IS NOT NULL AND cu.role<>'client') OR pm.user_id IS NOT NULL)`,[projectId,user.id,user.role]);return q.rowCount>0}
   const isStaff=user=>['admin','team'].includes(user?.role)
   async function addEvent(projectId,userId,title,description){await pool.query(`INSERT INTO os_events(project_id,event_type,title,description,created_by) VALUES($1,'field',$2,$3,$4)`,[projectId,title,description,userId])}
 
@@ -29,12 +30,22 @@ export function createFieldRoutes({pool,jwtSecret,cookieName='obra360_session'})
     const reportMatch=url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/daily-reports(?:\/(\d+)\/confirm)?\/?$/)
     const productivityMatch=url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/productivity\/?$/)
     const occurrenceMatch=url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/occurrences\/?$/)
-    if(!fieldMatch&&!reportMatch&&!productivityMatch&&!occurrenceMatch)return false
-    const projectId=Number((fieldMatch||reportMatch||productivityMatch||occurrenceMatch)[1]),user=await currentUser(req)
+    const voiceMatch=url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/field\/voice-preview\/?$/)
+    if(!fieldMatch&&!reportMatch&&!productivityMatch&&!occurrenceMatch&&!voiceMatch)return false
+    const projectId=Number((fieldMatch||reportMatch||productivityMatch||occurrenceMatch||voiceMatch)[1]),user=await currentUser(req)
     if(!user){send(res,401,{error:'Não autenticado'});return true}
     if(!(await canAccess(user,projectId))){send(res,403,{error:'Sem acesso'});return true}
     if(fieldMatch&&req.method==='GET'){send(res,200,await fieldBundle(projectId));return true}
     if(!isStaff(user)){send(res,403,{error:'Somente a equipe da obra pode registrar dados de campo.'});return true}
+
+    if(voiceMatch&&req.method==='POST'){
+      const body=await readJson(req),transcript=String(body?.transcript||'').trim().slice(0,4000)
+      if(!transcript){send(res,400,{error:'Informe ou grave o relato de campo.'});return true}
+      const activities=await pool.query(`SELECT id,title,unit FROM os_tasks WHERE project_id=$1 AND status<>'na' ORDER BY task_order,id`,[projectId])
+      let preview=interpretFieldVoice(transcript,activities.rows)
+      if(geminiApiKey){try{const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':geminiApiKey},body:JSON.stringify({contents:[{parts:[{text:`Interprete este relato de canteiro sem inventar dados. Retorne somente JSON com production {activityId,quantity,unit,workedHours,workerCount,downtimeHours,downtimeReason}, workforce {roles,absences}, occurrence {occurrenceType,title,description}|null, report {weather,notes}, confidence. activityId deve ser um dos ids fornecidos. RELATO: ${transcript}\nATIVIDADES: ${JSON.stringify(activities.rows)}`}]}],generationConfig:{temperature:0.05,maxOutputTokens:650,responseMimeType:'application/json'}})});if(response.ok){const data=await response.json(),text=data?.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||'',parsed=JSON.parse(text),valid=activities.rows.some(item=>item.id===Number(parsed?.production?.activityId));preview={...preview,...parsed,production:{...preview.production,...parsed.production,activityId:valid?Number(parsed.production.activityId):preview.production.activityId},report:{...preview.report,...parsed.report,reportDate:preview.report.reportDate},transcript,mode:'gemini',requiresConfirmation:true}}}catch(error){console.error('field-voice-preview',error)}}
+      send(res,200,{preview});return true
+    }
 
     if(reportMatch&&req.method==='POST'&&!reportMatch[2]){
       const body=await readJson(req),reportDate=isoDate(body?.reportDate)

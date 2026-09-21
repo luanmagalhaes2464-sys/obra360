@@ -1,0 +1,4 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {interpretFieldVoice} from '../lib/field-voice.mjs'
+test('field voice extracts crew production downtime and absence without committing data',()=>{const result=interpretFieldVoice('Hoje vieram cinco pedreiros e quatro ajudantes. Fizemos 82 metros quadrados de alvenaria. Carlos faltou. Ficamos duas horas parados porque a argamassa não chegou.',[{id:7,title:'Alvenaria do bloco B',unit:'m²'}]);assert.equal(result.production.activityId,7);assert.equal(result.production.quantity,82);assert.equal(result.production.unit,'m²');assert.equal(result.production.workerCount,9);assert.equal(result.production.downtimeHours,2);assert.deepEqual(result.workforce.absences,['Carlos']);assert.equal(result.occurrence.occurrenceType,'falta_material');assert.equal(result.requiresConfirmation,true)})

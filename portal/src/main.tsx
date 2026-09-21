@@ -17,6 +17,7 @@ import './motor-planning.css'
 import './field-operations.css'
 import './workforce-planning.css'
 import './governance-workspace.css'
+import './municipal-workflow.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

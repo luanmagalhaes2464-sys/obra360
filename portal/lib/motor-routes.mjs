@@ -45,7 +45,7 @@ export function createMotorRoutes({ pool, jwtSecret, cookieName = 'obra360_sessi
     const q = await pool.query(`SELECT 1 FROM projects p
       LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true
       LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2
-      WHERE p.id=$1 AND (cu.user_id IS NOT NULL OR pm.user_id IS NOT NULL)`, [projectId, user.id])
+      WHERE p.id=$1 AND (($3='team' AND cu.user_id IS NOT NULL AND cu.role<>'client') OR pm.user_id IS NOT NULL)`, [projectId, user.id, user.role])
     return q.rowCount > 0
   }
 

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Gauge, LoaderCircle, Plus, TimerReset, Users } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Gauge, LoaderCircle, Mic, Plus, TimerReset, Users } from 'lucide-react'
+import FieldVoiceCapture from './FieldVoiceCapture'
 
 type Activity={id:number;title:string;wbs_code?:string;unit?:string;planned_quantity?:number|string;actual_quantity?:number|string;planned_productivity?:number|string;actual_productivity?:number|string}
 type Report={id:number;report_date:string;weather?:string;notes?:string;status:'draft'|'confirmed';productivity_count:number;labor_hours:number|string;downtime_hours:number|string;created_by_name?:string}
@@ -15,13 +16,14 @@ const number=(value:any,digits=2)=>new Intl.NumberFormat('pt-BR',{maximumFractio
 export default function FieldOperations({projectId,notify}:{projectId:number;notify:(message:string)=>void}){
   const[data,setData]=useState<FieldData|null>(null),[tab,setTab]=useState<'rdo'|'production'|'occurrences'>('rdo'),[busy,setBusy]=useState(false),[error,setError]=useState('')
   const[showRdo,setShowRdo]=useState(false),[showProduction,setShowProduction]=useState(false),[showOccurrence,setShowOccurrence]=useState(false)
+  const[showVoice,setShowVoice]=useState(false)
   async function load(){setError('');try{setData(await request(`/api/vico/projects/${projectId}/field`))}catch(e:any){setError(e.message)}}
   useEffect(()=>{setData(null);load()},[projectId])
   async function save(url:string,body:any,message:string){setBusy(true);try{await request(url,{method:'POST',body:JSON.stringify(body)});await load();window.dispatchEvent(new CustomEvent('obra360:refresh'));notify(message);return true}catch(e:any){notify(e.message);return false}finally{setBusy(false)}}
   async function confirm(id:number){setBusy(true);try{await request(`/api/vico/projects/${projectId}/daily-reports/${id}/confirm`,{method:'PATCH'});await load();notify('RDO confirmado.')}catch(e:any){notify(e.message)}finally{setBusy(false)}}
   if(error)return <div className="v4-page"><div className="v4-form-error">{error}</div></div>
   if(!data)return <div className="v4-loading">Carregando dados de campo…</div>
-  return <div className="v4-page field-page"><header className="field-head"><div><span>CAMPO · RDO · PRODUTIVIDADE</span><h1>O que aconteceu na obra.</h1><p>Registros confirmados alimentam o histórico operacional. Nenhuma ocorrência altera o cronograma automaticamente.</p></div><div><button onClick={()=>setShowRdo(true)}><ClipboardCheck size={16}/> Novo RDO</button><button className="v4-primary" onClick={()=>setShowProduction(true)}><Plus size={16}/> Registrar produção</button></div></header>
+  return <div className="v4-page field-page"><header className="field-head"><div><span>CAMPO · RDO · PRODUTIVIDADE</span><h1>O que aconteceu na obra.</h1><p>Registros confirmados alimentam o histórico operacional. Nenhuma ocorrência altera o cronograma automaticamente.</p></div><div><button onClick={()=>setShowVoice(true)}><Mic size={16}/> Relatar por voz</button><button onClick={()=>setShowRdo(true)}><ClipboardCheck size={16}/> Novo RDO</button><button className="v4-primary" onClick={()=>setShowProduction(true)}><Plus size={16}/> Registrar produção</button></div></header>
     <section className="field-summary"><article><ClipboardCheck/><span><b>{data.summary.confirmed}</b><small>RDOs confirmados</small></span></article><article><Gauge/><span><b>{data.summary.records}</b><small>apontamentos</small></span></article><article><Users/><span><b>{number(data.summary.laborHours,1)}</b><small>horas-homem</small></span></article><article className={data.summary.downtimeHours?'warning':''}><TimerReset/><span><b>{number(data.summary.downtimeHours,1)}h</b><small>paralisação</small></span></article></section>
     <div className="field-tabs"><button className={tab==='rdo'?'active':''} onClick={()=>setTab('rdo')}>Diário de obra</button><button className={tab==='production'?'active':''} onClick={()=>setTab('production')}>Produtividade</button><button className={tab==='occurrences'?'active':''} onClick={()=>setTab('occurrences')}>Ocorrências <em>{data.occurrences.length}</em></button></div>
     {tab==='rdo'&&<section className="field-panel"><header><div><span>REGISTROS DIÁRIOS</span><h2>RDOs recentes</h2></div></header><div className="field-report-list">{data.reports.map(report=><article key={report.id}><div className={`field-report-date ${report.status}`}><b>{new Date(`${dateValue(report.report_date)}T12:00:00`).getDate()}</b><span>{new Date(`${dateValue(report.report_date)}T12:00:00`).toLocaleDateString('pt-BR',{month:'short'})}</span></div><div><span>{report.status==='confirmed'?'CONFIRMADO':'RASCUNHO'} · {report.weather||'Clima não informado'}</span><h3>{report.notes||'Sem observações gerais.'}</h3><small>{report.productivity_count} apontamento(s) · {number(report.labor_hours,1)} h-h · {number(report.downtime_hours,1)}h paradas</small></div>{report.status==='draft'&&<button disabled={busy} onClick={()=>confirm(report.id)}><CheckCircle2 size={16}/> Confirmar</button>}</article>)}{!data.reports.length&&<p className="field-empty">Nenhum RDO registrado.</p>}</div></section>}
@@ -30,6 +32,7 @@ export default function FieldOperations({projectId,notify}:{projectId:number;not
     {showRdo&&<RdoForm busy={busy} close={()=>setShowRdo(false)} save={async body=>{if(await save(`/api/vico/projects/${projectId}/daily-reports`,body,'RDO salvo como rascunho.'))setShowRdo(false)}}/>}
     {showProduction&&<ProductionForm activities={data.activities} reports={data.reports} busy={busy} close={()=>setShowProduction(false)} save={async body=>{if(await save(`/api/vico/projects/${projectId}/productivity`,body,'Produção registrada.'))setShowProduction(false)}}/>}
     {showOccurrence&&<OccurrenceForm activities={data.activities} reports={data.reports} busy={busy} close={()=>setShowOccurrence(false)} save={async body=>{if(await save(`/api/vico/projects/${projectId}/occurrences`,body,'Ocorrência registrada para revisão.'))setShowOccurrence(false)}}/>}
+    {showVoice&&<FieldVoiceCapture projectId={projectId} activities={data.activities} close={()=>setShowVoice(false)} notify={notify} complete={load}/>}
   </div>
 }
 

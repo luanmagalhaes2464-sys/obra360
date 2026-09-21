@@ -3,6 +3,8 @@ export const FIELD_MIGRATION_VERSION = '2026.09.21-field-01'
 export const CAPACITY_MIGRATION_VERSION = '2026.09.21-capacity-01'
 export const GOVERNANCE_MIGRATION_VERSION = '2026.09.21-governance-01'
 export const ADVANCED_PLANNING_MIGRATION_VERSION = '2026.09.21-planning-02'
+export const REPORTING_MIGRATION_VERSION = '2026.09.21-reporting-01'
+export const MUNICIPAL_MIGRATION_VERSION = '2026.09.21-municipal-01'
 
 export const MOTOR_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -230,6 +232,53 @@ CREATE TABLE IF NOT EXISTS document_versions(
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(document_id,version_number)
 );
+CREATE TABLE IF NOT EXISTS operational_reports(
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  report_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  content TEXT NOT NULL,
+  metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','reviewed','shared')),
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS municipal_workflows(
+  id SERIAL PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  municipality TEXT NOT NULL,
+  state_code TEXT NOT NULL,
+  project_kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS municipal_workflow_steps(
+  id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES municipal_workflows(id) ON DELETE CASCADE,
+  code TEXT,
+  title TEXT NOT NULL,
+  description TEXT,
+  order_index INTEGER NOT NULL,
+  requires_document_type TEXT,
+  UNIQUE(workflow_id,order_index)
+);
+CREATE TABLE IF NOT EXISTS project_administrative_steps(
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  workflow_step_id INTEGER NOT NULL REFERENCES municipal_workflow_steps(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','in_progress','requirement','approved','not_applicable')),
+  protocol_number TEXT,
+  notes TEXT,
+  responsible_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(project_id,workflow_step_id)
+);
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS mime_type TEXT;
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS file_size INTEGER CHECK(file_size IS NULL OR file_size >= 0);
 
@@ -245,6 +294,9 @@ CREATE INDEX IF NOT EXISTS idx_productivity_activity_date ON productivity_record
 CREATE INDEX IF NOT EXISTS idx_daily_reports_project_date ON daily_reports(project_id,report_date DESC);
 CREATE INDEX IF NOT EXISTS idx_occurrences_project_date ON occurrences(project_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_project ON documents(project_id,document_type,status);
+CREATE INDEX IF NOT EXISTS idx_operational_reports_project ON operational_reports(project_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_municipal_workflows_company ON municipal_workflows(company_id,municipality,state_code,project_kind);
+CREATE INDEX IF NOT EXISTS idx_admin_steps_project ON project_administrative_steps(project_id,status);
 `
 
 export async function migrateMotor(pool) {
@@ -263,6 +315,8 @@ export async function migrateMotor(pool) {
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [CAPACITY_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [GOVERNANCE_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [ADVANCED_PLANNING_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [REPORTING_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [MUNICIPAL_MIGRATION_VERSION])
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')

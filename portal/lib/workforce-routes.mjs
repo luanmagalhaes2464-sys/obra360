@@ -6,7 +6,7 @@ async function readJson(req){const chunks=[];let size=0;for await(const chunk of
 const iso=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value):null
 export function createWorkforceRoutes({pool,jwtSecret,cookieName='obra360_session'}){
  async function user(req){const token=parseCookies(req.headers.cookie||'')[cookieName];if(!token)return null;try{const payload=jwt.verify(token,jwtSecret);return (await pool.query('SELECT id,name,email,role FROM users WHERE id=$1',[payload.id])).rows[0]||null}catch{return null}}
- async function context(person,projectId){if(!person)return null;const q=await pool.query(`SELECT p.company_id FROM projects p LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2 WHERE p.id=$1 AND ($3='admin' OR cu.user_id IS NOT NULL OR pm.user_id IS NOT NULL)`,[projectId,person.id,person.role]);return q.rows[0]||null}
+ async function context(person,projectId){if(!person)return null;const q=await pool.query(`SELECT p.company_id FROM projects p LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2 WHERE p.id=$1 AND ($3='admin' OR ($3='team' AND cu.user_id IS NOT NULL AND cu.role<>'client') OR pm.user_id IS NOT NULL)`,[projectId,person.id,person.role]);return q.rows[0]||null}
  const staff=person=>['admin','team'].includes(person?.role)
  async function event(projectId,userId,title,description){await pool.query(`INSERT INTO os_events(project_id,event_type,title,description,created_by) VALUES($1,'workforce',$2,$3,$4)`,[projectId,title,description,userId])}
  return async function handleWorkforce(req,res,url){

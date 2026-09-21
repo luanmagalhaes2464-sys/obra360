@@ -8,6 +8,9 @@ import { createMotorRoutes } from './lib/motor-routes.mjs'
 import { createFieldRoutes } from './lib/field-routes.mjs'
 import { createWorkforceRoutes } from './lib/workforce-routes.mjs'
 import { createGovernanceRoutes } from './lib/governance-routes.mjs'
+import { createReportingRoutes } from './lib/reporting-routes.mjs'
+import { createMunicipalRoutes } from './lib/municipal-routes.mjs'
+import { createIntelligenceRoutes } from './lib/intelligence-routes.mjs'
 
 const { Pool } = pg
 const PORT = Number(process.env.PORT || 10000)
@@ -67,7 +70,7 @@ async function canAccess(user, projectId) {
   const q = await pool.query(`SELECT 1 FROM projects p
     LEFT JOIN company_users cu ON cu.company_id=p.company_id AND cu.user_id=$2 AND cu.is_active=true
     LEFT JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=$2
-    WHERE p.id=$1 AND (cu.user_id IS NOT NULL OR pm.user_id IS NOT NULL)`, [projectId, user.id])
+    WHERE p.id=$1 AND (($3='team' AND cu.user_id IS NOT NULL AND cu.role<>'client') OR pm.user_id IS NOT NULL)`, [projectId, user.id, user.role])
   return q.rowCount > 0
 }
 
@@ -198,9 +201,12 @@ async function handleCosts(req, res, projectId, costId) {
 await migrateFinance()
 await migrateMotor(pool)
 const handleMotorRequest = createMotorRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
-const handleFieldRequest = createFieldRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
+const handleFieldRequest = createFieldRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE, geminiApiKey: process.env.GEMINI_API_KEY })
 const handleWorkforceRequest = createWorkforceRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
 const handleGovernanceRequest = createGovernanceRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
+const handleReportingRequest = createReportingRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
+const handleMunicipalRequest = createMunicipalRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
+const handleIntelligenceRequest = createIntelligenceRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE, geminiApiKey: process.env.GEMINI_API_KEY })
 
 const child = spawn(process.execPath, ['server-launcher-safe-v2.mjs'], {
   cwd: process.cwd(),
@@ -220,6 +226,9 @@ const server = http.createServer(async (req, res) => {
     if (await handleFieldRequest(req, res, url)) return
     if (await handleWorkforceRequest(req, res, url)) return
     if (await handleGovernanceRequest(req, res, url)) return
+    if (await handleReportingRequest(req, res, url)) return
+    if (await handleMunicipalRequest(req, res, url)) return
+    if (await handleIntelligenceRequest(req, res, url)) return
     const match = url.pathname.match(/^\/api\/os\/projects\/(\d+)\/costs(?:\/(\d+))?\/?$/)
     if (match) return await handleCosts(req, res, Number(match[1]), match[2] ? Number(match[2]) : null)
   } catch (e) {
