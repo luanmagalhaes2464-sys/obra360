@@ -2,6 +2,7 @@ export const MOTOR_MIGRATION_VERSION = '2026.09.21-motor-01'
 export const FIELD_MIGRATION_VERSION = '2026.09.21-field-01'
 export const CAPACITY_MIGRATION_VERSION = '2026.09.21-capacity-01'
 export const GOVERNANCE_MIGRATION_VERSION = '2026.09.21-governance-01'
+export const ADVANCED_PLANNING_MIGRATION_VERSION = '2026.09.21-planning-02'
 
 export const MOTOR_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -60,6 +61,14 @@ CREATE TABLE IF NOT EXISTS activity_dependencies(
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(project_id,predecessor_id,successor_id),
   CHECK(predecessor_id <> successor_id)
+);
+CREATE TABLE IF NOT EXISTS activity_baselines(
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  snapshot JSONB NOT NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS blockers(
@@ -228,6 +237,7 @@ CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id,id);
 CREATE INDEX IF NOT EXISTS idx_company_users_user ON company_users(user_id,company_id) WHERE is_active=true;
 CREATE INDEX IF NOT EXISTS idx_tasks_schedule ON os_tasks(project_id,planned_start,planned_end);
 CREATE INDEX IF NOT EXISTS idx_dependencies_project ON activity_dependencies(project_id,successor_id,predecessor_id);
+CREATE INDEX IF NOT EXISTS idx_baselines_project ON activity_baselines(project_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_blockers_active ON blockers(project_id,activity_id) WHERE status='active';
 CREATE INDEX IF NOT EXISTS idx_allocations_period ON allocations(project_id,start_date,end_date);
 CREATE INDEX IF NOT EXISTS idx_workers_company_trade ON workers(company_id,trade) WHERE active=true;
@@ -252,6 +262,7 @@ export async function migrateMotor(pool) {
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [FIELD_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [CAPACITY_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [GOVERNANCE_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [ADVANCED_PLANNING_MIGRATION_VERSION])
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')

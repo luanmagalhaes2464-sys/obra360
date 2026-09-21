@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { parseCookies } from './http-safety.mjs'
-import { buildMotorState, ganttWindow, wouldCreateCycle } from './motor-engine.mjs'
+import { buildMotorState, criticalPath, ganttWindow, wouldCreateCycle } from './motor-engine.mjs'
 
 const BLOCKER_TYPES = new Set(['predecessora','projeto','documento','aprovacao','cliente','material','equipamento','mao_de_obra','sst','fornecedor','inspecao','decisao','outro'])
 const DEPENDENCY_TYPES = new Set(['FS','SS','FF','SF'])
@@ -52,13 +52,16 @@ export function createMotorRoutes({ pool, jwtSecret, cookieName = 'obra360_sessi
   function staff(user) { return ['admin','team'].includes(user?.role) }
 
   async function bundle(projectId) {
-    const [tasks, dependencies, blockers] = await Promise.all([
+    const [tasks, dependencies, blockers, baselines] = await Promise.all([
       pool.query(`SELECT t.*,u.name responsible_name FROM os_tasks t LEFT JOIN users u ON u.id=t.responsible_user_id WHERE t.project_id=$1 ORDER BY t.task_order,t.id`, [projectId]),
       pool.query(`SELECT d.*,p.title predecessor_title,s.title successor_title FROM activity_dependencies d JOIN os_tasks p ON p.id=d.predecessor_id JOIN os_tasks s ON s.id=d.successor_id WHERE d.project_id=$1 ORDER BY d.id`, [projectId]),
       pool.query(`SELECT b.*,u.name created_by_name FROM blockers b LEFT JOIN users u ON u.id=b.created_by WHERE b.project_id=$1 ORDER BY (b.status='active') DESC,b.created_at DESC`, [projectId]),
+      pool.query(`SELECT id,name,snapshot,created_at FROM activity_baselines WHERE project_id=$1 ORDER BY created_at DESC,id DESC LIMIT 10`,[projectId]),
     ])
     const state = buildMotorState(tasks.rows, dependencies.rows, blockers.rows)
-    return {...state, dependencies:dependencies.rows, blockers:blockers.rows, gantt:ganttWindow(tasks.rows)}
+    const path=criticalPath(tasks.rows,dependencies.rows)
+    const activities=state.activities.map(item=>({...item,critical:Boolean(path.activities[item.id]?.critical),total_float:path.activities[item.id]?.totalFloat??null}))
+    return {...state,activities,dependencies:dependencies.rows,blockers:blockers.rows,baselines:baselines.rows,criticalPath:path,gantt:ganttWindow(tasks.rows)}
   }
 
   async function activityExists(projectId, activityId) {
@@ -75,9 +78,10 @@ export function createMotorRoutes({ pool, jwtSecret, cookieName = 'obra360_sessi
     const activityMatch = url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/activities\/(\d+)\/?$/)
     const dependencyMatch = url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/dependencies(?:\/(\d+))?\/?$/)
     const blockerMatch = url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/blockers(?:\/(\d+)\/resolve)?\/?$/)
-    if (!projectMatch && !activityMatch && !dependencyMatch && !blockerMatch) return false
+    const baselineMatch = url.pathname.match(/^\/api\/vico\/projects\/(\d+)\/baselines\/?$/)
+    if (!projectMatch && !activityMatch && !dependencyMatch && !blockerMatch && !baselineMatch) return false
 
-    const projectId = Number((projectMatch || activityMatch || dependencyMatch || blockerMatch)[1])
+    const projectId = Number((projectMatch || activityMatch || dependencyMatch || blockerMatch || baselineMatch)[1])
     const user = await userFrom(req)
     if (!user) { send(res,401,{error:'Não autenticado'}); return true }
     if (!(await access(user,projectId))) { send(res,403,{error:'Sem acesso'}); return true }
@@ -86,6 +90,16 @@ export function createMotorRoutes({ pool, jwtSecret, cookieName = 'obra360_sessi
       send(res,200,await bundle(projectId)); return true
     }
     if (!staff(user)) { send(res,403,{error:'Somente a equipe técnica pode alterar o planejamento.'}); return true }
+
+    if (baselineMatch && req.method === 'POST') {
+      const body=await readJson(req),name=String(body?.name||'Baseline').trim().slice(0,120)||'Baseline'
+      const rows=await pool.query(`SELECT id,wbs_code,title,planned_start,planned_end,duration_days,planned_cost,planned_quantity,unit,percent_complete FROM os_tasks WHERE project_id=$1 AND status<>'na' ORDER BY task_order,id`,[projectId])
+      if(!rows.rowCount){send(res,400,{error:'Não há atividades para registrar na baseline.'});return true}
+      const snapshot={capturedAt:new Date().toISOString(),activities:rows.rows}
+      const q=await pool.query(`INSERT INTO activity_baselines(project_id,name,snapshot,created_by) VALUES($1,$2,$3,$4) RETURNING id,name,snapshot,created_at`,[projectId,name,snapshot,user.id])
+      await event(projectId,user.id,`Baseline registrada: ${name}`,`${rows.rowCount} atividade(s) preservadas para comparação.`)
+      send(res,201,{baseline:q.rows[0]});return true
+    }
 
     if (activityMatch && req.method === 'PATCH') {
       const activityId = Number(activityMatch[2])

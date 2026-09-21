@@ -83,3 +83,42 @@ export function ganttWindow(tasks) {
   const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), days }
 }
+
+export function criticalPath(tasks, dependencies) {
+  const active = tasks.filter(task => task.status !== 'na')
+  const ids = new Set(active.map(task => Number(task.id)))
+  const duration = new Map(active.map(task => [Number(task.id), Math.max(1, Number(task.duration_days) || 1)]))
+  const incoming = new Map(active.map(task => [Number(task.id), []]))
+  const outgoing = new Map(active.map(task => [Number(task.id), []]))
+  for (const dependency of dependencies) {
+    const from = Number(dependency.predecessor_id), to = Number(dependency.successor_id)
+    if (!ids.has(from) || !ids.has(to)) continue
+    outgoing.get(from).push(to)
+    incoming.get(to).push(from)
+  }
+  const indegree = new Map([...incoming].map(([id, rows]) => [id, rows.length]))
+  const queue = active.map(task => Number(task.id)).filter(id => indegree.get(id) === 0)
+  const order = []
+  while (queue.length) {
+    const id = queue.shift(); order.push(id)
+    for (const next of outgoing.get(id)) { indegree.set(next, indegree.get(next) - 1); if (indegree.get(next) === 0) queue.push(next) }
+  }
+  if (order.length !== active.length) return { valid:false, totalDuration:0, criticalIds:[], activities:{}, reason:'cycle' }
+  const earliestStart = new Map(), earliestFinish = new Map()
+  for (const id of order) {
+    const start = Math.max(0, ...incoming.get(id).map(previous => earliestFinish.get(previous) || 0))
+    earliestStart.set(id,start); earliestFinish.set(id,start + duration.get(id))
+  }
+  const totalDuration = Math.max(0,...earliestFinish.values()), latestFinish = new Map(), latestStart = new Map()
+  for (const id of [...order].reverse()) {
+    const next = outgoing.get(id), finish = next.length ? Math.min(...next.map(successor => latestStart.get(successor))) : totalDuration
+    latestFinish.set(id,finish); latestStart.set(id,finish-duration.get(id))
+  }
+  const activities = {}, criticalIds = []
+  for (const id of order) {
+    const totalFloat = latestStart.get(id)-earliestStart.get(id)
+    activities[id] = {earliestStart:earliestStart.get(id),earliestFinish:earliestFinish.get(id),latestStart:latestStart.get(id),latestFinish:latestFinish.get(id),totalFloat,critical:totalFloat===0}
+    if (totalFloat===0) criticalIds.push(id)
+  }
+  return {valid:true,totalDuration,criticalIds,activities,method:'precedence-duration',nonFsDependencies:dependencies.filter(item=>item.dependency_type&&item.dependency_type!=='FS').length}
+}

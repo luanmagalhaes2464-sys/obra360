@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMotorState, ganttWindow, wouldCreateCycle } from '../lib/motor-engine.mjs'
+import { buildMotorState, criticalPath, ganttWindow, wouldCreateCycle } from '../lib/motor-engine.mjs'
 
 const tasks = [
   {id:1,title:'Fundação',status:'done',priority:'alta',task_order:1,planned_start:'2026-09-01',planned_end:'2026-09-05'},
@@ -36,4 +36,10 @@ test('dependency graph rejects self links and cycles', () => {
 test('gantt window uses the first and last planned date', () => {
   assert.deepEqual(ganttWindow(tasks),{start:'2026-09-01',end:'2026-09-20',days:20})
   assert.equal(ganttWindow([{id:1}]),null)
+})
+
+test('critical path calculates longest dependency chain and float', () => {
+  const rows=[{id:1,duration_days:3,status:'pending'},{id:2,duration_days:5,status:'pending'},{id:3,duration_days:2,status:'pending'},{id:4,duration_days:2,status:'pending'}]
+  const result=criticalPath(rows,[{predecessor_id:1,successor_id:2},{predecessor_id:1,successor_id:3},{predecessor_id:2,successor_id:4},{predecessor_id:3,successor_id:4}])
+  assert.equal(result.valid,true);assert.equal(result.totalDuration,10);assert.deepEqual(result.criticalIds,[1,2,4]);assert.equal(result.activities[3].totalFloat,3)
 })
