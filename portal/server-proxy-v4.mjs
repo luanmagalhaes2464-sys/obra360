@@ -6,6 +6,7 @@ import { parseCookies } from './lib/http-safety.mjs'
 import { migrateMotor } from './lib/motor-schema.mjs'
 import { createMotorRoutes } from './lib/motor-routes.mjs'
 import { createFieldRoutes } from './lib/field-routes.mjs'
+import { createWorkforceRoutes } from './lib/workforce-routes.mjs'
 
 const { Pool } = pg
 const PORT = Number(process.env.PORT || 10000)
@@ -197,6 +198,7 @@ await migrateFinance()
 await migrateMotor(pool)
 const handleMotorRequest = createMotorRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
 const handleFieldRequest = createFieldRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
+const handleWorkforceRequest = createWorkforceRoutes({ pool, jwtSecret: JWT_SECRET, cookieName: COOKIE })
 
 const child = spawn(process.execPath, ['server-launcher-safe-v2.mjs'], {
   cwd: process.cwd(),
@@ -214,6 +216,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
     if (await handleMotorRequest(req, res, url)) return
     if (await handleFieldRequest(req, res, url)) return
+    if (await handleWorkforceRequest(req, res, url)) return
     const match = url.pathname.match(/^\/api\/os\/projects\/(\d+)\/costs(?:\/(\d+))?\/?$/)
     if (match) return await handleCosts(req, res, Number(match[1]), match[2] ? Number(match[2]) : null)
   } catch (e) {

@@ -1,5 +1,6 @@
 export const MOTOR_MIGRATION_VERSION = '2026.09.21-motor-01'
 export const FIELD_MIGRATION_VERSION = '2026.09.21-field-01'
+export const CAPACITY_MIGRATION_VERSION = '2026.09.21-capacity-01'
 
 export const MOTOR_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -45,6 +46,7 @@ ALTER TABLE os_tasks ADD COLUMN IF NOT EXISTS baseline JSONB NOT NULL DEFAULT '{
 ALTER TABLE os_tasks ADD COLUMN IF NOT EXISTS delay_reason TEXT;
 ALTER TABLE os_tasks ADD COLUMN IF NOT EXISTS impact_note TEXT;
 ALTER TABLE os_tasks ADD COLUMN IF NOT EXISTS responsible_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE os_tasks ADD COLUMN IF NOT EXISTS workforce_trade TEXT;
 
 CREATE TABLE IF NOT EXISTS activity_dependencies(
   id SERIAL PRIMARY KEY,
@@ -225,6 +227,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_schedule ON os_tasks(project_id,planned_sta
 CREATE INDEX IF NOT EXISTS idx_dependencies_project ON activity_dependencies(project_id,successor_id,predecessor_id);
 CREATE INDEX IF NOT EXISTS idx_blockers_active ON blockers(project_id,activity_id) WHERE status='active';
 CREATE INDEX IF NOT EXISTS idx_allocations_period ON allocations(project_id,start_date,end_date);
+CREATE INDEX IF NOT EXISTS idx_workers_company_trade ON workers(company_id,trade) WHERE active=true;
 CREATE INDEX IF NOT EXISTS idx_productivity_activity_date ON productivity_records(activity_id,record_date DESC);
 CREATE INDEX IF NOT EXISTS idx_daily_reports_project_date ON daily_reports(project_id,report_date DESC);
 CREATE INDEX IF NOT EXISTS idx_occurrences_project_date ON occurrences(project_id,created_at DESC);
@@ -244,6 +247,7 @@ export async function migrateMotor(pool) {
       ON CONFLICT(company_id,user_id) DO NOTHING`, [companyId])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [MOTOR_MIGRATION_VERSION])
     await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [FIELD_MIGRATION_VERSION])
+    await client.query('INSERT INTO schema_migrations(version) VALUES($1) ON CONFLICT(version) DO NOTHING', [CAPACITY_MIGRATION_VERSION])
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
