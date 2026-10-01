@@ -31,7 +31,7 @@ const navItems:{key:NavKey; label:string; icon:any}[] = [
   { key:'seguranca', label:'Segurança', icon:HardHat },
   { key:'historico', label:'Memória da obra', icon:BookOpenText },
   { key:'decisoes', label:'Decisões', icon:MessageSquareText },
-  { key:'ia', label:'Obra IA', icon:Bot },
+  { key:'ia', label:'VIÇO IA', icon:Bot },
 ]
 
 async function api<T=any>(url:string, options:RequestInit={}) : Promise<T> {
@@ -57,7 +57,7 @@ export default function App(){
 }
 
 function Splash(){
-  return <div className="splash"><div className="brand-lock"><span>O</span><b>OBRA<em>360</em></b></div><div className="splash-line"/></div>
+  return <div className="splash"><div className="brand-lock"><span>V</span><b>VIÇO<em>ENG</em></b></div><div className="splash-line"/></div>
 }
 
 function Login({onLogin}:{onLogin:(u:User)=>void}){
@@ -75,7 +75,7 @@ function Login({onLogin}:{onLogin:(u:User)=>void}){
       <div className="blueprint-grid"/>
       <div className="login-brand"><span className="brand-square">O</span><b>OBRA<em>360</em></b></div>
       <div className="login-copy">
-        <span className="overline light">PORTAL DA OBRA</span>
+        <span className="overline light">PORTAL VIÇO OBRAS</span>
         <h1>Sua obra não precisa ser uma caixa-preta.</h1>
         <p>Acompanhe avanço físico, orçamento, documentos, segurança, decisões e o histórico técnico em um só ambiente.</p>
         <div className="login-pills"><span><Gauge size={16}/> Evolução</span><span><ShieldCheck size={16}/> Segurança</span><span><Bot size={16}/> IA com contexto</span></div>
@@ -85,7 +85,7 @@ function Login({onLogin}:{onLogin:(u:User)=>void}){
     <div className="login-panel">
       <form className="login-card" onSubmit={submit}>
         <span className="overline">ACESSO SEGURO</span>
-        <h2>Entre no Portal Obra360</h2>
+        <h2>Entre no Portal VIÇO</h2>
         <p>Use o acesso enviado pela equipe responsável pela sua obra.</p>
         <label>E-mail<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required/></label>
         <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required/></label>
@@ -122,7 +122,7 @@ function Portal({user,onLogout}:{user:User;onLogout:()=>void}){
 
   return <div className="portal-shell">
     <aside className={`sidebar ${mobileNav?'open':''}`}>
-      <div className="sidebar-head"><div className="brand-lock small"><span>O</span><b>OBRA<em>360</em></b></div><button className="icon-btn mobile-only" onClick={()=>setMobileNav(false)}><X size={20}/></button></div>
+      <div className="sidebar-head"><div className="brand-lock small"><span>V</span><b>VIÇO<em>ENG</em></b></div><button className="icon-btn mobile-only" onClick={()=>setMobileNav(false)}><X size={20}/></button></div>
       <div className="project-mini">
         <small>OBRA ATIVA</small>
         <strong>{bundle?.project.name || 'Carregando…'}</strong>
@@ -160,8 +160,8 @@ function Portal({user,onLogout}:{user:User;onLogout:()=>void}){
 
 function EmptyWorkspace({user,onCreated,onLogout}:{user:User;onCreated:()=>void;onLogout:()=>void}){
   const staff=['admin','team'].includes(user.role)
-  return <div className="empty-workspace"><div className="empty-top"><div className="brand-lock"><span>O</span><b>OBRA<em>360</em></b></div><button className="ghost-btn" onClick={onLogout}><LogOut size={16}/> Sair</button></div>
-    <div className="empty-center"><div className="empty-icon"><Building2 size={32}/></div><span className="overline">PORTAL DA OBRA</span><h1>{staff?'Cadastre a primeira obra':'Seu acesso ainda não possui uma obra vinculada.'}</h1><p>{staff?'O sistema começa sem dados fictícios. Cadastre uma obra real e o Portal Obra360 cria a estrutura inicial de fases, documentos e acompanhamento.':'Solicite à equipe Obra360 a vinculação do seu acesso ao empreendimento.'}</p>{staff&&<CreateProjectForm onCreated={onCreated}/>}</div>
+  return <div className="empty-workspace"><div className="empty-top"><div className="brand-lock"><span>V</span><b>VIÇO<em>ENG</em></b></div><button className="ghost-btn" onClick={onLogout}><LogOut size={16}/> Sair</button></div>
+    <div className="empty-center"><div className="empty-icon"><Building2 size={32}/></div><span className="overline">PORTAL VIÇO OBRAS</span><h1>{staff?'Cadastre a primeira obra':'Seu acesso ainda não possui uma obra vinculada.'}</h1><p>{staff?'O sistema começa sem dados fictícios. Cadastre uma obra real e o Portal VIÇO cria a estrutura inicial de fases, documentos e acompanhamento.':'Solicite à equipe VIÇO a vinculação do seu acesso ao empreendimento.'}</p>{staff&&<CreateProjectForm onCreated={onCreated}/>}</div>
   </div>
 }
 
@@ -297,7 +297,7 @@ function Decisions({bundle,reload}:{bundle:Bundle;reload:()=>void}){
 }
 
 function AIView({bundle}:{bundle:Bundle}){
-  const [messages,setMessages]=useState<{role:'user'|'assistant';text:string;evidence?:any[];mode?:string}[]>([{role:'assistant',text:`Eu sou a Obra IA. Consigo consultar o que está registrado em ${bundle.project.name}: histórico, documentos, cronograma, custos, decisões e segurança. Pergunte, por exemplo, “o que mudou na última semana?” ou “o que falta para avançar de fase?”.`}])
+  const [messages,setMessages]=useState<{role:'user'|'assistant';text:string;evidence?:any[];mode?:string}[]>([{role:'assistant',text:`Eu sou a VIÇO IA. Consigo consultar o que está registrado em ${bundle.project.name}: histórico, documentos, cronograma, custos, decisões e segurança. Pergunte, por exemplo, “o que mudou na última semana?” ou “o que falta para avançar de fase?”.`}])
   const [text,setText]=useState('')
   const [busy,setBusy]=useState(false)
   const endRef=useRef<HTMLDivElement>(null)
@@ -316,7 +316,7 @@ function Management({bundle,reload}:{bundle:Bundle;reload:()=>void}){
   const [msg,setMsg]=useState('')
   const projectId=bundle.project.id
   async function handle(e:FormEvent<HTMLFormElement>,endpoint:string,method='POST'){e.preventDefault();setMsg('');const body=Object.fromEntries(new FormData(e.currentTarget).entries());try{await api(endpoint,{method,body:JSON.stringify(body)});setMsg('Salvo com sucesso.');(e.currentTarget as HTMLFormElement).reset();await reload()}catch(err:any){setMsg(err.message)}}
-  return <div className="page-content"><PageHead eyebrow="GESTÃO DA OBRA" title="Atualize o portal com dados reais" subtitle="Área da equipe técnica para alimentar o que o cliente acompanha e o que a Obra IA utiliza como contexto."/>
+  return <div className="page-content"><PageHead eyebrow="GESTÃO DA OBRA" title="Atualize o portal com dados reais" subtitle="Área da equipe técnica para alimentar o que o cliente acompanha e o que a VIÇO IA utiliza como contexto."/>
     <div className="management-tabs">{[['indicadores','Indicadores'],['historico','Diário / histórico'],['documento','Documento'],['seguranca','Segurança'],['decisao','Decisão'],['financeiro','Custo'],['acesso','Acesso do cliente']].map(([k,l])=><button key={k} className={tab===k?'active':''} onClick={()=>{setTab(k as any);setMsg('')}}>{l}</button>)}</div>
     <div className="management-card">{tab==='indicadores'&&<form onSubmit={e=>handle(e,`/api/projects/${projectId}`,'PATCH')}><FormTitle title="Atualizar indicadores principais" text="Use os valores consolidados mais recentes da obra."/><div className="field-grid"><label>Avanço físico (%)<input name="progress" type="number" step="0.1" min="0" max="100" defaultValue={bundle.project.progress}/></label><label>Avanço planejado (%)<input name="plannedProgress" type="number" step="0.1" min="0" max="100" defaultValue={bundle.project.planned_progress}/></label><label>Orçamento total<input name="budget" type="number" min="0" defaultValue={bundle.project.budget}/></label><label>Comprometido<input name="committed" type="number" min="0" defaultValue={bundle.project.committed}/></label><label>Realizado / pago<input name="spent" type="number" min="0" defaultValue={bundle.project.spent}/></label><label>Status<select name="status" defaultValue={bundle.project.status}><option value="planejamento">Planejamento</option><option value="em_execucao">Em execução</option><option value="pausada">Pausada</option><option value="concluida">Concluída</option></select></label></div><SaveButton/></form>}
       {tab==='historico'&&<form onSubmit={e=>handle(e,`/api/projects/${projectId}/events`)}><FormTitle title="Registrar diário / ocorrência" text="O registro entra na Memória da Obra e pode ser consultado pela IA."/><div className="field-grid"><label>Tipo<select name="eventType"><option value="atualizacao">Atualização</option><option value="obra">Execução</option><option value="visita">Visita técnica</option><option value="reuniao">Reunião</option><option value="ocorrencia">Ocorrência</option></select></label><label className="span2">Título<input name="title" required placeholder="Ex.: Concretagem do pavimento concluída"/></label><label className="span3">Descrição<textarea name="description" rows={4} placeholder="O que aconteceu, decisões tomadas, pendências e responsáveis."/></label></div><SaveButton/></form>}
