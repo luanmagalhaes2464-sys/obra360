@@ -314,8 +314,11 @@ function render(d, r) {
   const summary = `Diagnóstico preliminar — ${tipoLabel[d.tipo]}, ${d.area} m², ${d.municipio}. Investimento estimado: ${money(r.low)} a ${money(r.high)}. Prazo provável: ${r.monthsLow} a ${r.monthsHigh} meses. Equipe-base: ${r.masons} a ${r.masonHigh} pedreiros + apoio e especialidades. Terreno: ${d.terreno}. Acabamento: ${d.padrao}.`;
   window.currentSummary = summary;
 
-  const phone = '5531000000000';
-  document.querySelector('#whatsappBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent('Olá! Fiz o diagnóstico gratuito no site e gostaria de conversar sobre minha obra.\n\n' + summary)}`;
+  const contactButton = document.querySelector('#whatsappBtn');
+  if (contactButton) {
+    contactButton.href = '#contato';
+    contactButton.removeAttribute('target');
+  }
 
   const results = document.querySelector('#resultado');
   results.classList.remove('hidden');
