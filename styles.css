@@ -3,64 +3,215 @@
 @media(max-width:900px){.topbar nav{display:none}.intro,.consultoria,.public-layout,.business-section,.contact-layout{grid-template-columns:1fr;gap:28px}.engineering-note{align-items:flex-start;flex-direction:column}.public-section{margin-top:68px}.platform{max-width:760px}}
 @media(max-width:680px){.topbar{height:68px}.topbar .btn-small{display:none}.hero{padding:72px 20px;background-position:58% center}.hero h1{font-size:47px}.hero-copy>p{font-size:16px}.hero-actions{flex-direction:column;align-items:stretch}.hero-card{padding:22px}.section{padding:68px 18px}.pillars,.health-grid,.engineering-grid,.public-grid,.platform-metrics{grid-template-columns:1fr}.consultoria{margin:0 10px;padding:54px 18px}.platform-body{grid-template-columns:52px 1fr}.platform-main{padding:16px}.audience-strip{justify-content:flex-start;overflow:auto;flex-wrap:nowrap}.audience-strip span{white-space:nowrap}footer{align-items:flex-start;flex-direction:column}}
 
-/* 2026: refinamento editorial, identidade azul original e contato direto */
-body{font-family:"Source Sans 3",Arial,sans-serif;background:#f6f9fc;color:#172d40}
+
+/* VIÇO Engenharia: linguagem visual editorial em azul, sem cards de template */
+:root{
+ --navy:#153852;
+ --navy-dark:#102a40;
+ --blue:#1d689e;
+ --sky:#dcecf7;
+ --line:#cedde8;
+ --body:#4d6374;
+}
+body{font-family:"Source Sans 3",Arial,sans-serif;background:#fff;color:var(--navy-dark)}
 h1,h2,h3,h4,.brand-copy strong{font-family:"Libre Franklin",Arial,sans-serif}
-.eyebrow{font-family:"Source Sans 3",sans-serif;font-size:11px;letter-spacing:.13em}
-.topbar{background:rgba(255,255,255,.97);border-color:#dce8f2}
-.topbar nav{font-size:14px}
-.brand-mark{background:#163c60;border-radius:7px;font-family:"Libre Franklin",sans-serif}
-.brand-copy strong{font-size:18px;letter-spacing:.03em}
-.brand-copy small{font-family:"Source Sans 3",sans-serif;letter-spacing:.2em}
-.btn{font-family:"Source Sans 3",sans-serif;border-radius:8px;font-size:15px;min-height:46px}
-.btn-small,.btn-primary{background:#1b6197;color:#fff;box-shadow:none}
-.btn-small:hover,.btn-primary:hover{background:#124b7c}
-.hero.hero-refined{min-height:570px;padding:76px max(6vw,28px);display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:min(6vw,84px);color:#173047;background:linear-gradient(135deg,#f6fbff,#e8f4fc);overflow:hidden}
-.hero-refined .hero-copy{max-width:710px}
-.hero-refined h1{font-family:"Libre Franklin",sans-serif;font-size:clamp(38px,4.25vw,66px);line-height:1.13;letter-spacing:-.045em;margin:22px 0}
-.hero-refined h1 span{color:#1c679e}
-.hero-refined .hero-copy>p{color:#48677f;font-size:19px;line-height:1.55;max-width:610px;text-shadow:none}
-.hero-refined .hero-actions{margin-top:34px;display:flex;align-items:center;gap:24px}
-.hero-refined .btn-primary{gap:14px;padding:0 25px}
-.btn-text{background:transparent;color:#185a8b;border:0;padding:0;box-shadow:none;gap:10px}
-.btn-text:hover{color:#093f6a}
-.hero-refined .hero-note{font-size:13px;color:#688498;margin-top:30px}
-.hero-picture{min-height:420px;height:min(34vw,520px);overflow:hidden;border-radius:6px;box-shadow:0 22px 60px rgba(23,65,96,.14)}
-.hero-picture img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
-.method-section{padding:74px max(6vw,28px) 82px;background:#fff}
+.eyebrow{font:700 11px "Source Sans 3",sans-serif;letter-spacing:.16em}
+.eyebrow.dark{color:#2477a6}
+.eyebrow.light{color:#afdff8}
+.topbar{background:rgba(255,255,255,.97);border-bottom:1px solid #dde8ef;height:76px}
+.topbar nav{font-size:14px;gap:19px}
+.brand-mark{background:var(--navy);border-radius:6px;font:800 18px "Libre Franklin",sans-serif}
+.brand-copy strong{font-size:18px;letter-spacing:.04em}
+.brand-copy small{font:700 9px "Source Sans 3",sans-serif;letter-spacing:.22em}
+.btn{font-family:"Source Sans 3",sans-serif;min-height:46px;border-radius:7px;font-size:15px;box-shadow:none;transition:background .2s ease,color .2s ease}
+.btn:hover{transform:none}
+.btn-small,.btn-primary,.btn-contact{background:#1a669b;color:#fff}
+.btn-small:hover,.btn-primary:hover,.btn-contact:hover{background:#104f7f}
+.section{padding:88px max(6vw,28px)}
+.intro h2,.solution-copy h2,.sector-head h2,.consult-copy h2,.engineering-head h2,.public-layout h2,.business-head h2,.contact-layout h2{font-family:"Libre Franklin",sans-serif;line-height:1.14;letter-spacing:-.04em}
+.intro>p,.sector-head>p,.consult-copy>p,.engineering-head>p,.public-layout p,.contact-layout p{font-size:17px;line-height:1.6}
+.intro{gap:66px;padding-bottom:62px}
+
+/* Imagem original é fundo da seção inteira, e não um recorte lateral. */
+.hero.hero-refined{
+ display:flex;
+ align-items:center;
+ min-height:660px;
+ padding:110px max(6vw,28px);
+ color:#fff;
+ background:#153a55;
+ position:relative;
+ overflow:hidden;
+ isolation:isolate;
+}
+.hero-background{position:absolute;inset:0;z-index:-1;overflow:hidden}
+.hero-background img{width:100%;height:100%;object-fit:cover;object-position:center 51%;display:block}
+.hero-background::after{
+ content:"";position:absolute;inset:0;
+ background:linear-gradient(90deg,rgba(9,33,53,.94) 0%,rgba(11,39,62,.87) 28%,rgba(13,44,66,.67) 46%,rgba(13,44,66,.18) 75%,rgba(13,44,66,.04) 100%),
+ linear-gradient(0deg,rgba(9,28,46,.28),transparent 36%);
+}
+.hero-refined .hero-copy{max-width:730px;position:relative;z-index:1}
+.hero-refined .eyebrow.dark{color:#bce5ff}
+.hero-refined h1{
+ font-family:"Libre Franklin",sans-serif;
+ font-size:clamp(42px,4.45vw,72px);
+ line-height:1.12;letter-spacing:-.05em;
+ max-width:760px;
+ margin:25px 0;
+ color:#fff;
+}
+.hero-refined h1 span{color:#c5e9ff}
+.hero-refined .hero-copy>p{color:#e2eef6;font-size:19px;line-height:1.62;max-width:590px;text-shadow:0 1px 16px rgba(0,0,0,.16)}
+.hero-refined .hero-actions{display:flex;align-items:center;gap:24px;margin-top:35px}
+.hero-refined .btn-primary{padding:0 24px;gap:14px;background:#79c5ec;color:#103350}
+.hero-refined .btn-primary:hover{background:#b2e2fa}
+.btn-text{border:0;background:transparent;color:#f3f9ff;padding:0;gap:8px}
+.btn-text:hover{color:#a7defb}
+.hero-refined .hero-note{font-size:14px;color:#bfd9ea;margin-top:34px}
+
+/* Etapas com uma linha contínua, sem caixas ou numeração */
+.method-section{padding:79px max(6vw,28px) 94px;background:#f3f8fb}
 .method-header{max-width:900px}
-.method-header h2{font-family:"Libre Franklin",sans-serif;font-size:clamp(30px,3.2vw,47px);line-height:1.16;letter-spacing:-.045em;color:#183a56;margin:12px 0 14px}
-.method-header p{font-size:18px;line-height:1.5;color:#5e7385;margin:0}
-.method-steps{padding:0;margin:46px 0 0;list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}
-.method-steps li{border-top:2px solid #bbd9ee;padding:24px 12px 0 0;min-width:0}
-.method-steps .step-no{display:block;font:700 14px "Libre Franklin",sans-serif;letter-spacing:.05em;color:#2c79ab;margin-bottom:22px}
-.method-steps h3{font-family:"Libre Franklin",sans-serif;font-size:20px;letter-spacing:-.025em;margin:0 0 10px;color:#173d5d}
-.method-steps p{font-size:15px;line-height:1.55;color:#627888;max-width:260px;margin:0}
-.audience-strip{background:#e7f3fb;color:#426b86}
-.pillar.featured,.engineering-note{background:#173d5d}
-.blue-section{background:#163d5b}
-.public-section{background:#112f4b}
-.contact-section{background:#d9effb;color:#173d5d}
-.contact-layout .eyebrow{color:#27648e}
-.contact-layout p{color:#426b86}
-.btn-contact{background:#1b6197;color:#fff;gap:15px;max-width:max-content;margin-top:28px}
-.btn-contact:hover{background:#124b7c}
+.method-header h2{font:700 clamp(30px,3.15vw,46px) "Libre Franklin",sans-serif;line-height:1.18;letter-spacing:-.045em;color:var(--navy);margin:16px 0}
+.method-header p{font-size:18px;line-height:1.55;color:#587185;margin:0}
+.method-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:34px;padding:0;margin:58px 0 0;list-style:none;position:relative}
+.method-steps:before{content:"";position:absolute;top:5px;left:0;right:0;height:1px;background:#a9c9df}
+.method-steps li{position:relative;border:0;background:transparent;min-width:0;padding:35px 10px 0 0}
+.method-steps li:before{content:"";position:absolute;left:0;top:0;width:11px;height:11px;border-radius:50%;background:#2378a7;box-shadow:0 0 0 5px #f3f8fb}
+.method-steps .step-no{display:none}
+.method-steps h3{font:700 20px "Libre Franklin",sans-serif;letter-spacing:-.02em;color:#153e5b;margin:0 0 10px}
+.method-steps p{font-size:16px;line-height:1.55;color:#5c7588;margin:0;max-width:270px}
+.audience-strip{background:#e5f1f8;color:#406680;border-top:1px solid #d4e6f0;border-bottom:1px solid #d4e6f0}
+
+/* Serviços como índice editorial, com filetes em vez de cards */
+.pillars{padding-top:0;padding-bottom:98px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 70px;background:#fff}
+.pillar,.pillar.featured{
+ background:transparent;color:var(--navy);
+ border:0;border-top:1px solid #cbdde8;border-radius:0;
+ min-height:0;padding:32px 8px 34px 0;
+ box-shadow:none;
+}
+.pillar>span{display:none}
+.pillar small,.pillar.featured small{display:block;margin:0;font:700 11px "Source Sans 3",sans-serif;letter-spacing:.13em;color:#2a76a5}
+.pillar h3{font:700 clamp(20px,2vw,27px) "Libre Franklin",sans-serif;letter-spacing:-.035em;line-height:1.25;margin:16px 0}
+.pillar p,.pillar.featured p{font-size:16px;line-height:1.64;color:#596d7d;margin:0}
+
+/* Seção de soluções: lista de entregas, sem painel fictício */
+.blue-section{background:#173d59;color:#fff}
+.solution-layout{display:grid;grid-template-columns:1.03fr .97fr;gap:90px;align-items:center}
+.solution-copy h2{font-size:clamp(36px,4.1vw,57px);max-width:680px}
+.solution-copy>p{color:#c9dce9;font-size:17px;line-height:1.62;margin-top:23px;max-width:620px}
+.text-link-light{display:inline-flex;align-items:center;gap:10px;color:#b9e6ff;font-weight:700;font-size:16px;margin-top:30px;border-bottom:1px solid rgba(185,230,255,.5);padding-bottom:9px}
+.text-link-light:hover{color:#fff}
+.deliverables{border-top:1px solid rgba(255,255,255,.25)}
+.deliverables>div{padding:23px 0 26px;border-bottom:1px solid rgba(255,255,255,.2)}
+.deliverables small{display:block;color:#9bcde9;letter-spacing:.13em;font-size:11px;font-weight:700}
+.deliverables h3{font:700 23px "Libre Franklin",sans-serif;letter-spacing:-.035em;margin:9px 0}
+.deliverables p{color:#c7d8e4;line-height:1.52;font-size:15px;margin:0}
+
+/* Áreas de atendimento: blocos abertos, alinhados e com mais respiro */
+.health-grid,.engineering-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 68px;margin-top:42px}
+.health-grid article,.engineering-grid article{
+ background:transparent;
+ border:0;border-top:1px solid #d0dfe9;
+ border-radius:0;box-shadow:none;
+ min-height:0;padding:30px 4px 32px 0;
+}
+.health-grid article>span,.engineering-grid article>span{font:700 11px "Source Sans 3",sans-serif;letter-spacing:.13em;color:#2d7cae}
+.health-grid h3,.engineering-grid h3{font:700 22px "Libre Franklin",sans-serif;line-height:1.26;letter-spacing:-.03em;margin:15px 0 12px;color:#193c58}
+.health-grid p,.engineering-grid p{font-size:16px;line-height:1.58;color:#5b7080;margin:0}
+.sector-head,.engineering-head{max-width:940px}
+.engineering-section{padding-top:88px}
+.engineering-note{display:none}
+
+/* Consultoria: cronologia vertical sem números e sem blocos flutuantes */
+.consultoria{display:grid;grid-template-columns:.91fr 1.09fr;gap:75px;align-items:start;background:#edf6fb;border-radius:0;margin:0;padding:90px max(6vw,28px)}
+.consult-copy p{margin-top:24px}
+.consult-steps{display:grid;gap:0;border-top:1px solid #c9dde9}
+.consult-steps>div{display:block;background:transparent;border:0;border-bottom:1px solid #c9dde9;border-radius:0;padding:21px 0}
+.consult-steps b{display:none}
+.consult-steps span{display:block;font-size:15px;line-height:1.58;color:#597388}
+.consult-steps strong{display:block;font:700 19px "Libre Franklin",sans-serif;letter-spacing:-.025em;color:#163b59;margin-bottom:7px}
+
+/* Área pública: contraste e linhas contínuas em vez de cartões */
+.public-section{background:#123650;color:#fff;margin-top:0}
+.public-layout{display:grid;grid-template-columns:.95fr 1.05fr;gap:80px}
+.public-layout p{color:#bfd3e0;margin-top:20px}
+.public-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
+.public-grid article{background:transparent;border:0;border-top:1px solid rgba(255,255,255,.28);border-radius:0;padding:22px 0 26px}
+.public-grid small{font:700 11px "Source Sans 3",sans-serif;color:#afdff8;letter-spacing:.13em}
+.public-grid b{font:700 19px "Libre Franklin",sans-serif;letter-spacing:-.02em;margin:13px 0 10px}
+.public-grid span{font-size:15px;line-height:1.5;color:#c5d6e3}
+
+/* Problemas de empresas: pares de problema / solução com separadores */
+.business-section{display:grid;grid-template-columns:.9fr 1.1fr;gap:74px;align-items:start;background:#fff}
+.problem-list{display:grid;gap:0;border-top:1px solid var(--line)}
+.problem-list>div{display:block;background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:19px 18px 22px 0;position:relative}
+.problem-list>div:after{content:"↗";color:#488eb7;font-size:18px;position:absolute;right:0;top:19px}
+.problem-list>div>span{display:none}
+.problem-list p{margin:0}
+.problem-list b{font:700 18px "Libre Franklin",sans-serif;line-height:1.45;letter-spacing:-.02em;color:#173d5b;padding-right:24px}
+.problem-list small{font-size:15px;color:#637c8d;margin-top:8px;line-height:1.5;display:block}
+
+.contact-section{background:#dceefa;color:#153c5a}
+.contact-layout{display:grid;grid-template-columns:1fr 1fr;gap:75px}
+.contact-layout .eyebrow{color:#286f9e}
+.contact-layout p{color:#456c85}
+.btn-contact{display:inline-flex;background:#1a669b;color:#fff;gap:15px;margin-top:25px;max-width:max-content}
+.legal-note{font-size:11px!important;color:#52768b!important;margin-top:20px!important}
+footer{background:#112c41;min-height:156px;gap:36px}
+footer .footer-location{display:flex;flex-direction:column;gap:6px}
+footer .footer-location strong{font:700 15px "Libre Franklin",sans-serif;color:#ecf6fe}
+footer .footer-location small{font:400 13px "Source Sans 3",sans-serif;color:#adc5d5}
+footer>span{font-size:12px;color:#adc5d5}
+.inverse .brand-copy small{color:#bdccda}
+
+@media(max-width:1100px){
+ .solution-layout,.intro,.consultoria,.public-layout,.business-section,.contact-layout{grid-template-columns:1fr;gap:40px}
+ .hero.hero-refined{min-height:620px}
+ .pillars,.health-grid,.engineering-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .public-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media(max-width:900px){
- .hero.hero-refined{grid-template-columns:1fr;gap:28px;padding-top:70px;padding-bottom:70px}
- .hero-picture{height:380px;min-height:0}
- .method-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
+ .topbar nav{display:none}
+ .hero.hero-refined{padding:90px 6vw;min-height:620px}
+ .hero-background img{object-position:57% center}
+ .hero-background::after{background:linear-gradient(90deg,rgba(9,33,53,.96),rgba(11,39,62,.75) 57%,rgba(13,44,66,.24))}
+ .hero-refined .hero-copy{max-width:640px}
+ .method-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
+ .method-steps:before{display:none}
+ .method-steps li{border-top:1px solid #b7d1e1;padding-top:28px}
+ .method-steps li:before{top:-6px}
+ .consultoria{padding:78px 6vw}
 }
 @media(max-width:680px){
- .hero.hero-refined{padding:58px 20px}
- .hero-refined h1{font-size:clamp(34px,9vw,46px)}
- .hero-refined .hero-actions{flex-direction:column;align-items:stretch;gap:13px}
- .hero-refined .btn-text{justify-content:flex-start;padding:12px 0}
- .hero-picture{height:255px}
- .method-section{padding:60px 20px}
- .method-steps{grid-template-columns:1fr;gap:24px;margin-top:32px}
- .method-steps li{padding-top:16px}
- .method-steps .step-no{margin-bottom:10px}
- .btn-contact{max-width:100%}
- .contact-layout .btn-contact{font-size:14px}
- .topbar .btn-small{display:inline-flex;font-size:12px;padding:0 11px;min-height:36px}
+ .topbar{height:68px;gap:10px;padding:0 18px}
+ .topbar .btn-small{display:inline-flex;font-size:12px;min-height:36px;padding:0 11px}
+ .brand{gap:7px}
+ .brand-mark{width:33px;height:33px}
+ .brand-copy strong{font-size:16px}
+ .hero.hero-refined{padding:84px 20px 76px;min-height:620px}
+ .hero-background img{object-position:58% center}
+ .hero-background::after{background:linear-gradient(90deg,rgba(9,32,51,.94),rgba(9,32,51,.82) 65%,rgba(9,32,51,.58))}
+ .hero-refined h1{font-size:clamp(36px,9vw,48px)}
+ .hero-refined .hero-copy>p{font-size:17px}
+ .hero-refined .hero-actions{align-items:stretch;flex-direction:column;gap:10px}
+ .hero-refined .btn-text{justify-content:flex-start;padding:11px 0}
+ .hero-refined .hero-note{margin-top:22px}
+ .method-section{padding:66px 20px 70px}
+ .method-steps,.pillars,.health-grid,.engineering-grid,.public-grid{grid-template-columns:1fr}
+ .method-steps{margin-top:38px;gap:19px}
+ .method-steps li{padding-top:23px}
+ .section{padding:65px 20px}
+ .intro{gap:24px}
+ .pillars{padding-top:0;padding-bottom:60px;gap:0}
+ .health-grid,.engineering-grid{margin-top:32px;gap:0}
+ .consultoria{margin:0;padding:70px 20px}
+ .public-grid{gap:0}
+ .contact-layout .btn-contact{font-size:14px;max-width:100%}
+ footer{align-items:flex-start;flex-direction:column;gap:24px;padding:38px 20px}
+}
+@media(prefers-reduced-motion:reduce){
+ .btn{transition:none}
 }
