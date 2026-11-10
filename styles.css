@@ -62,7 +62,7 @@ h1,h2,h3,h4,.brand-copy strong{font-family:"Libre Franklin",Arial,sans-serif}
  color:#fff;
 }
 .hero-refined h1 span{color:#c5e9ff}
-.hero-refined .hero-copy>p{color:#e2eef6;font-size:19px;line-height:1.62;max-width:590px;text-shadow:0 1px 16px rgba(0,0,0,.16)}
+.hero-refined .hero-copy>p:not(.hero-note){color:#e2eef6;font-size:19px;line-height:1.62;max-width:590px;text-shadow:0 1px 16px rgba(0,0,0,.16)}
 .hero-refined .hero-actions{display:flex;align-items:center;gap:24px;margin-top:35px}
 .hero-refined .btn-primary{padding:0 24px;gap:14px;background:#79c5ec;color:#103350}
 .hero-refined .btn-primary:hover{background:#b2e2fa}
