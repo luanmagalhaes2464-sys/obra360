@@ -323,3 +323,43 @@ footer>span{font-size:12px;color:#adc5d5}
       url("assets/clinicas-pop-manual-pgrss.png") 45% center / cover no-repeat;
   }
 }
+
+
+/* Abertura visual da página Engenharia & SST: imagem como fundo do texto. */
+.inner-page #engenharia{padding-top:0}
+.inner-page #engenharia .engineering-head{
+  max-width:none;
+  min-height:500px;
+  margin-left:calc(0px - max(6vw, 28px));
+  margin-right:calc(0px - max(6vw, 28px));
+  padding:86px max(6vw, 28px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  background:
+    linear-gradient(90deg,rgba(249,252,254,.98) 0%,rgba(249,252,254,.94) 34%,rgba(249,252,254,.80) 58%,rgba(249,252,254,.25) 100%),
+    url("assets/engenharia-sst-fundo.webp") center 54% / cover no-repeat;
+}
+.inner-page #engenharia .engineering-head h2{max-width:1180px;color:#112c41}
+.inner-page #engenharia .engineering-head p{max-width:1160px;color:#536b7b}
+.inner-page #engenharia .engineering-grid{margin-top:50px}
+@media(max-width:900px){
+  .inner-page #engenharia .engineering-head{
+    min-height:460px;
+    background:
+      linear-gradient(90deg,rgba(249,252,254,.97) 0%,rgba(249,252,254,.91) 48%,rgba(249,252,254,.65) 100%),
+      url("assets/engenharia-sst-fundo.webp") 54% center / cover no-repeat;
+  }
+}
+@media(max-width:680px){
+  .inner-page #engenharia .engineering-head{
+    min-height:460px;
+    margin-left:-18px;
+    margin-right:-18px;
+    padding:60px 18px;
+    background:
+      linear-gradient(90deg,rgba(249,252,254,.96),rgba(249,252,254,.85)),
+      url("assets/engenharia-sst-fundo.webp") 49% center / cover no-repeat;
+  }
+  .inner-page #engenharia .engineering-grid{margin-top:32px}
+}
