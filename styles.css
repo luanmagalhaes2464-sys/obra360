@@ -285,3 +285,13 @@ footer>span{font-size:12px;color:#adc5d5}
 @media(max-width:380px){
  .topbar>.btn-small{display:none}
 }
+
+
+/* Imagem institucional da página de clínicas, preservando os serviços abaixo. */
+.clinic-banner{margin:0;background:#dceaf3;overflow:hidden;border-bottom:1px solid #d2e1eb}
+.clinic-banner img{display:block;width:100%;height:clamp(300px,32vw,500px);object-fit:cover;object-position:center 57%}
+.inner-page .clinic-banner + .sector{padding-top:62px}
+@media(max-width:680px){
+ .clinic-banner img{height:auto;max-height:none;object-fit:contain}
+ .inner-page .clinic-banner + .sector{padding-top:48px}
+}
