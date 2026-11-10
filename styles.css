@@ -2,3 +2,65 @@
 @media(max-width:1100px){.hero,.solution-layout{grid-template-columns:1fr}.hero{gap:42px}.hero-card{max-width:760px}.pillars{grid-template-columns:1fr 1fr}.health-grid,.engineering-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.topbar nav{display:none}.intro,.consultoria,.public-layout,.business-section,.contact-layout{grid-template-columns:1fr;gap:28px}.engineering-note{align-items:flex-start;flex-direction:column}.public-section{margin-top:68px}.platform{max-width:760px}}
 @media(max-width:680px){.topbar{height:68px}.topbar .btn-small{display:none}.hero{padding:72px 20px;background-position:58% center}.hero h1{font-size:47px}.hero-copy>p{font-size:16px}.hero-actions{flex-direction:column;align-items:stretch}.hero-card{padding:22px}.section{padding:68px 18px}.pillars,.health-grid,.engineering-grid,.public-grid,.platform-metrics{grid-template-columns:1fr}.consultoria{margin:0 10px;padding:54px 18px}.platform-body{grid-template-columns:52px 1fr}.platform-main{padding:16px}.audience-strip{justify-content:flex-start;overflow:auto;flex-wrap:nowrap}.audience-strip span{white-space:nowrap}footer{align-items:flex-start;flex-direction:column}}
+
+/* 2026: refinamento editorial, identidade azul original e contato direto */
+body{font-family:"Source Sans 3",Arial,sans-serif;background:#f6f9fc;color:#172d40}
+h1,h2,h3,h4,.brand-copy strong{font-family:"Libre Franklin",Arial,sans-serif}
+.eyebrow{font-family:"Source Sans 3",sans-serif;font-size:11px;letter-spacing:.13em}
+.topbar{background:rgba(255,255,255,.97);border-color:#dce8f2}
+.topbar nav{font-size:14px}
+.brand-mark{background:#163c60;border-radius:7px;font-family:"Libre Franklin",sans-serif}
+.brand-copy strong{font-size:18px;letter-spacing:.03em}
+.brand-copy small{font-family:"Source Sans 3",sans-serif;letter-spacing:.2em}
+.btn{font-family:"Source Sans 3",sans-serif;border-radius:8px;font-size:15px;min-height:46px}
+.btn-small,.btn-primary{background:#1b6197;color:#fff;box-shadow:none}
+.btn-small:hover,.btn-primary:hover{background:#124b7c}
+.hero.hero-refined{min-height:570px;padding:76px max(6vw,28px);display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:min(6vw,84px);color:#173047;background:linear-gradient(135deg,#f6fbff,#e8f4fc);overflow:hidden}
+.hero-refined .hero-copy{max-width:710px}
+.hero-refined h1{font-family:"Libre Franklin",sans-serif;font-size:clamp(38px,4.25vw,66px);line-height:1.13;letter-spacing:-.045em;margin:22px 0}
+.hero-refined h1 span{color:#1c679e}
+.hero-refined .hero-copy>p{color:#48677f;font-size:19px;line-height:1.55;max-width:610px;text-shadow:none}
+.hero-refined .hero-actions{margin-top:34px;display:flex;align-items:center;gap:24px}
+.hero-refined .btn-primary{gap:14px;padding:0 25px}
+.btn-text{background:transparent;color:#185a8b;border:0;padding:0;box-shadow:none;gap:10px}
+.btn-text:hover{color:#093f6a}
+.hero-refined .hero-note{font-size:13px;color:#688498;margin-top:30px}
+.hero-picture{min-height:420px;height:min(34vw,520px);overflow:hidden;border-radius:6px;box-shadow:0 22px 60px rgba(23,65,96,.14)}
+.hero-picture img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.method-section{padding:74px max(6vw,28px) 82px;background:#fff}
+.method-header{max-width:900px}
+.method-header h2{font-family:"Libre Franklin",sans-serif;font-size:clamp(30px,3.2vw,47px);line-height:1.16;letter-spacing:-.045em;color:#183a56;margin:12px 0 14px}
+.method-header p{font-size:18px;line-height:1.5;color:#5e7385;margin:0}
+.method-steps{padding:0;margin:46px 0 0;list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}
+.method-steps li{border-top:2px solid #bbd9ee;padding:24px 12px 0 0;min-width:0}
+.method-steps .step-no{display:block;font:700 14px "Libre Franklin",sans-serif;letter-spacing:.05em;color:#2c79ab;margin-bottom:22px}
+.method-steps h3{font-family:"Libre Franklin",sans-serif;font-size:20px;letter-spacing:-.025em;margin:0 0 10px;color:#173d5d}
+.method-steps p{font-size:15px;line-height:1.55;color:#627888;max-width:260px;margin:0}
+.audience-strip{background:#e7f3fb;color:#426b86}
+.pillar.featured,.engineering-note{background:#173d5d}
+.blue-section{background:#163d5b}
+.public-section{background:#112f4b}
+.contact-section{background:#d9effb;color:#173d5d}
+.contact-layout .eyebrow{color:#27648e}
+.contact-layout p{color:#426b86}
+.btn-contact{background:#1b6197;color:#fff;gap:15px;max-width:max-content;margin-top:28px}
+.btn-contact:hover{background:#124b7c}
+@media(max-width:900px){
+ .hero.hero-refined{grid-template-columns:1fr;gap:28px;padding-top:70px;padding-bottom:70px}
+ .hero-picture{height:380px;min-height:0}
+ .method-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
+}
+@media(max-width:680px){
+ .hero.hero-refined{padding:58px 20px}
+ .hero-refined h1{font-size:clamp(34px,9vw,46px)}
+ .hero-refined .hero-actions{flex-direction:column;align-items:stretch;gap:13px}
+ .hero-refined .btn-text{justify-content:flex-start;padding:12px 0}
+ .hero-picture{height:255px}
+ .method-section{padding:60px 20px}
+ .method-steps{grid-template-columns:1fr;gap:24px;margin-top:32px}
+ .method-steps li{padding-top:16px}
+ .method-steps .step-no{margin-bottom:10px}
+ .btn-contact{max-width:100%}
+ .contact-layout .btn-contact{font-size:14px}
+ .topbar .btn-small{display:inline-flex;font-size:12px;padding:0 11px;min-height:36px}
+}
